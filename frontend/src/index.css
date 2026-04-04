@@ -1,3 +1,37 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .animate-fade-in-up {
+    animation: fadeInUp 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  .animate-fade-in {
+    animation: fadeIn 2s ease-out forwards;
+    opacity: 0;
+  }
+  .delay-100 { animation-delay: 300ms; }
+  .delay-200 { animation-delay: 600ms; }
+  .delay-300 { animation-delay: 900ms; }
+  .delay-400 { animation-delay: 1200ms; }
+  .delay-500 { animation-delay: 1500ms; }
+  .delay-600 { animation-delay: 1800ms; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

@@ -69,11 +69,13 @@ const getAssignments = async (req, res) => {
 // Upload bulk exam: 1 question + 1 teacher answer + many student answer images
 // AI extracts student ID/name from each paper and matches to DB
 const uploadBulkExam = async (req, res) => {
-  const { department, assignment_id } = req.body;
+  const { department, exam_type } = req.body;
   const files = req.files || {};
 
   if (!department || !DEPARTMENTS.includes(department))
     return res.status(400).json({ message: 'Valid department is required' });
+  if (!exam_type || !['Midterm Exam', 'Final Exam'].includes(exam_type))
+    return res.status(400).json({ message: 'Valid exam type (Midterm Exam or Final Exam) is required' });
 
   const questionFile = files['question_image']?.[0];
   const teacherFile  = files['teacher_answer_image']?.[0];
@@ -82,15 +84,6 @@ const uploadBulkExam = async (req, res) => {
   if (!questionFile)             return res.status(400).json({ message: 'Exam question image is required' });
   if (!teacherFile)              return res.status(400).json({ message: 'Teacher answer image is required' });
   if (studentFiles.length === 0) return res.status(400).json({ message: 'At least one student answer image is required' });
-
-  if (assignment_id) {
-    const owns = await pool.query(
-      'SELECT id FROM assignments WHERE id=$1 AND teacher_id=$2',
-      [assignment_id, req.user.id]
-    );
-    if (owns.rows.length === 0)
-      return res.status(403).json({ message: 'Assignment not found or does not belong to you' });
-  }
 
   const questionUrl = `uploads/${questionFile.filename}`;
   const teacherUrl  = `uploads/${teacherFile.filename}`;
@@ -156,23 +149,23 @@ const uploadBulkExam = async (req, res) => {
     }
 
     // Skip duplicate
-    if (assignment_id) {
+    if (exam_type) {
       const exists = await pool.query(
-        'SELECT id FROM submissions WHERE student_id=$1 AND assignment_id=$2',
-        [dbStudentId, assignment_id]
+        'SELECT id FROM submissions WHERE student_id=$1 AND exam_type=$2 AND submission_type=\'image\'',
+        [dbStudentId, exam_type]
       );
       if (exists.rows.length > 0) {
-        results.push({ file: studentFile.originalname, status: 'skipped', student_name: matchedName, message: 'Already submitted' });
+        results.push({ file: studentFile.originalname, status: 'skipped', student_name: matchedName, message: `Already submitted ${exam_type}` });
         continue;
       }
     }
 
     const r = await pool.query(
       `INSERT INTO submissions
-         (student_id, assignment_id, image_url, question_image_url, teacher_answer_image_url,
+         (student_id, exam_type, image_url, question_image_url, teacher_answer_image_url,
           submission_type, status, department, owner_teacher_id)
        VALUES ($1,$2,$3,$4,$5,'image','submitted',$6,$7) RETURNING id`,
-      [dbStudentId, assignment_id || null, studentUrl, questionUrl, teacherUrl, department, req.user.id]
+      [dbStudentId, exam_type, studentUrl, questionUrl, teacherUrl, department, req.user.id]
     );
 
     results.push({
@@ -199,7 +192,7 @@ const getTeacherSubmissions = async (req, res) => {
     const result = await pool.query(
       `SELECT s.*, u.name as student_name, u.student_id as student_code,
               u.department as student_department,
-              COALESCE(a.title, 'General Exam') as assignment_title,
+              COALESCE(s.exam_type, a.title, 'General Exam') as assignment_title,
               COALESCE(a.max_marks, 100) as max_marks
        FROM submissions s
        JOIN users u ON s.student_id = u.id
