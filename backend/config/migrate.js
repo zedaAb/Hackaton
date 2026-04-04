@@ -16,6 +16,12 @@ const migrate = async () => {
     // Ensure status constraint includes all valid values
     await pool.query(`ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_status_check`);
     await pool.query(`ALTER TABLE submissions ADD CONSTRAINT submissions_status_check CHECK (status IN ('pending', 'submitted', 'graded'))`);
+    await pool.query(
+      `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS owner_teacher_id INT REFERENCES users(id) ON DELETE SET NULL`
+    );
+    await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS assignment_format VARCHAR(20) DEFAULT 'text'`);
+    await pool.query(`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS assignment_pdf_url TEXT`);
+    await pool.query(`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS answer_pdf_url TEXT`);
     console.log('Migrations complete');
   } catch (err) {
     console.error('Migration error:', err.message);

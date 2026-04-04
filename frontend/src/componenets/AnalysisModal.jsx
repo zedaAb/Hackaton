@@ -50,11 +50,19 @@ const AnalysisModal = ({ submission, onClose }) => {
           </div>
           <div className="flex items-end gap-4 mt-4">
             <div>
-              <span className={`text-6xl font-extrabold ${gradeColor}`}>{a.overall_grade}</span>
-              <span className="text-2xl text-gray-400 font-bold">/100</span>
+              <span className={`text-6xl font-extrabold ${gradeColor}`}>
+                {a.marks_awarded ?? a.overall_grade}
+              </span>
+              <span className="text-2xl text-gray-400 font-bold">
+                /{a.max_marks ?? 100}
+              </span>
             </div>
             <div className="mb-2">
-              <span className={`text-3xl font-bold ${gradeColor}`}>{a.grade_letter}</span>
+              <span className={`text-3xl font-bold ${gradeColor}`}>
+                {a.marks_awarded != null && a.max_marks
+                  ? `${Math.round((a.marks_awarded / a.max_marks) * 100)}%`
+                  : `${a.overall_grade}%`}
+              </span>
               <p className="text-sm text-gray-500">{a.performance_level}</p>
             </div>
           </div>

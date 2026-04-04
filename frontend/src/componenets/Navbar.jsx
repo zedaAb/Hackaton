@@ -5,6 +5,9 @@ const studentLinks = [
   { to: '/student', label: 'Overview', icon: '🏠' },
   { to: '/student/assignments', label: 'Assignments', icon: '📋' },
   { to: '/student/grades', label: 'My Grades', icon: '📊' },
+  { to: '/student/materials', label: 'Materials', icon: '📚' },
+  { to: '/student/worksheets', label: 'Worksheets', icon: '📄' },
+  { to: '/student/qa', label: 'AI QA Tutor', icon: '🤖' },
 ];
 
 const teacherLinks = [
@@ -13,12 +16,15 @@ const teacherLinks = [
   { to: '/teacher/grading', label: 'AI Grading', icon: '🤖' },
   { to: '/teacher/upload', label: 'Upload Exam', icon: '📷' },
   { to: '/teacher/assignments', label: 'Assignments', icon: '📋' },
+  { to: '/teacher/materials', label: 'Materials', icon: '📚' },
+  { to: '/teacher/worksheets', label: 'Worksheets', icon: '📄' },
 ];
 
 const adminLinks = [
   { to: '/admin', label: 'Overview', icon: '🏠' },
   { to: '/admin/users', label: 'Users', icon: '👥' },
   { to: '/admin/submissions', label: 'Submissions', icon: '📝' },
+  { to: '/admin/register-teacher', label: 'Register Teacher', icon: '👨‍🏫' },
 ];
 
 const Navbar = ({ pendingGrading = 0 }) => {

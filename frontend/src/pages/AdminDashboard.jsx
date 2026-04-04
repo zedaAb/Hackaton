@@ -146,6 +146,60 @@ const SubmissionsSection = ({ submissions }) => (
   </div>
 );
 
+/* ── Register Teacher ── */
+const RegisterTeacherSection = ({ fetchAll }) => {
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatus('');
+    try {
+      await api.post('/admin/register-teacher', form);
+      setStatus('Success! Teacher account securely registered.');
+      setForm({ name: '', email: '', password: '' });
+      fetchAll();
+    } catch (err) {
+      setStatus(`Error: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-lg">
+      <h2 className="text-2xl font-bold text-gray-800 mb-1">Register New Teacher</h2>
+      <p className="text-gray-400 text-sm mb-6">Create authenticated educator credentials</p>
+      
+      {status && (
+        <div className={`mb-4 px-4 py-3 rounded text-sm ${status.includes('Error') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+          {status}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow p-6 space-y-4">
+        <div>
+          <label className="block text-sm text-gray-600 mb-1 font-medium">Full Name</label>
+          <input required type="text" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-400 focus:outline-none" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-600 mb-1 font-medium">Email Address</label>
+          <input required type="email" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-400 focus:outline-none" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-600 mb-1 font-medium">Initial Password</label>
+          <input required type="password" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-400 focus:outline-none" value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} />
+        </div>
+        <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 mt-4">
+          {loading ? 'Registering System Educator...' : 'Complete Teacher Registration'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
 /* ── Root ── */
 const AdminDashboard = () => {
   const { stats, users, submissions, fetchAll } = useAdminData();
@@ -155,6 +209,7 @@ const AdminDashboard = () => {
         <Route index element={<Overview stats={stats} />} />
         <Route path="users" element={<UsersSection users={users} fetchAll={fetchAll} />} />
         <Route path="submissions" element={<SubmissionsSection submissions={submissions} />} />
+        <Route path="register-teacher" element={<RegisterTeacherSection fetchAll={fetchAll} />} />
         <Route path="*" element={<Navigate to="/admin" />} />
       </Routes>
     </DashboardLayout>
