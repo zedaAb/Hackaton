@@ -25,6 +25,7 @@ const GRADING_PROMPT = `You are an expert academic grader. You will be given:
 3. The STUDENT'S ANSWER image
 
 Your grading rules:
+- EXACT POINT DISTRIBUTIONS: Deeply scan the exam questions for explicit point values (e.g. "(3 pt)", "[5 marks]"). If found, strictly use these extracted digits as the 'marks_total' for the question, and mathematically sum them to calculate the global 'max_marks'.
 - For factual/short-answer questions: award marks only if the student's answer matches the key facts in the teacher's answer.
 - For explanation/essay questions: DO NOT require word-for-word matching. Award marks based on whether the student demonstrates understanding of the core concepts, even if phrased differently. Partial credit is allowed.
 - For calculation questions: check method and final answer. Award partial marks for correct method even if the final answer is wrong.
@@ -68,6 +69,7 @@ const ASSIGNMENT_GRADING_PROMPT = `You are an expert academic grader. You will b
 3. The STUDENT'S ANSWER — as plain text and/or as a PDF
 
 Your grading rules:
+- EXACT POINT DISTRIBUTIONS: Deeply scan the exam questions and instructions for explicit point values (e.g. "(3 pt)", "[5 marks]", "Point value: 4"). If found, strictly use these parsed digits as the 'marks_total' per question, and mathematically sum them to exactly calculate the global 'max_marks'.
 - For factual/short-answer questions: award marks only if the student's answer matches the key facts in the teacher's answer key.
 - For explanation/essay questions: DO NOT require word-for-word matching. Award partial credit when the student shows understanding.
 - For calculation questions: check method and final answer; partial credit for correct method.
@@ -120,21 +122,38 @@ const imageToInlineData = (filePath) => {
   return { inlineData: { data, mimeType } };
 };
 
-// AI Helper: Safe Generate
+// Helper: Sleep
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// AI Helper: Safe Generate with Exponential Backoff
 const generateSafely = async (contentParts, isChat = false, chatHistory = []) => {
-  try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    if (isChat) {
-      const chat = model.startChat({ history: chatHistory.length > 0 ? chatHistory : undefined });
-      const res = await chat.sendMessage(contentParts);
-      return res;
+  let attempts = 0;
+  const maxAttempts = 3;
+
+  while (attempts < maxAttempts) {
+    try {
+      // Use gemini-2.5-flash as the fallback 1.5 flash triggered 404s.
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      if (isChat) {
+        const chat = model.startChat({ history: chatHistory.length > 0 ? chatHistory : undefined });
+        const res = await chat.sendMessage(contentParts);
+        return res;
+      }
+      return await model.generateContent(contentParts);
+    } catch (err) {
+      if (err.status === 429 || err?.message?.includes('429') || err?.message?.includes('Quota exceeded')) {
+        attempts++;
+        if (attempts >= maxAttempts) {
+          throw new Error('Google AI Free Tier Rate Limit reached (Max requests). Please wait and try again in a few minutes.');
+        }
+        // Exponential backoff: 3s, then 6s
+        const backoffMs = attempts * 3000;
+        console.warn(`[AI Rate Limit] Attempt ${attempts}/${maxAttempts} failed. Retrying in ${backoffMs}ms...`);
+        await sleep(backoffMs);
+      } else {
+        throw err;
+      }
     }
-    return await model.generateContent(contentParts);
-  } catch (err) {
-    if (err.status === 429 || err?.message?.includes('429') || err?.message?.includes('Quota exceeded')) {
-      throw new Error('Google AI Free Tier Rate Limit reached (Max requests). Please wait and try again.');
-    }
-    throw err;
   }
 };
 
@@ -192,7 +211,7 @@ const gradeSubmission = async (req, res) => {
       }
 
       contentParts = [
-        `IMPORTANT GRADING RULE: This assignment is graded out of a maximum of ${submission.max_marks || 100} marks. Explicitly calculate the marks awarded out of this total, calculate the percentage for 'overall_grade', and formulate your 'summary' starting with e.g. "You got X out of Y (Z%)." DO NOT SET A LETTER GRADE.`,
+        `IMPORTANT GRADING RULE: If point annotations like "(3 pt)" or "[5 marks]" are present locally on the exam paper, explicitly capture them, sum them, and dynamically override the baseline default of ${submission.max_marks || 100} to accurately reflect the true total. Calculate the percentage for 'overall_grade', and formulate your 'summary' starting with e.g. "You got X out of Y (Z%)." DO NOT SET A LETTER GRADE.`,
         GRADING_PROMPT,
         '\n\n=== IMAGE 1: EXAM QUESTION ===',
         imageToInlineData(questionPath),
@@ -212,7 +231,7 @@ const gradeSubmission = async (req, res) => {
 
       const fmt = submission.assignment_format || 'text';
       const parts = [
-        `IMPORTANT GRADING RULE: This assignment is graded out of a maximum of ${submission.max_marks || 100} marks. Explicitly calculate the marks awarded out of this total, calculate the percentage for 'overall_grade', and formulate your 'summary' starting with e.g. "You got X out of Y (Z%)." DO NOT SET A LETTER GRADE.`,
+        `IMPORTANT GRADING RULE: If point annotations like "(3 pt)" or "[5 marks]" are present locally on the assignment, explicitly capture them, sum them, and dynamically override the baseline default of ${submission.max_marks || 100} to accurately reflect the true total. Calculate the percentage for 'overall_grade', and formulate your 'summary' starting with e.g. "You got X out of Y (Z%)." DO NOT SET A LETTER GRADE.`,
         ASSIGNMENT_GRADING_PROMPT, 
         '\n\n=== TEACHER ANSWER KEY ===\n', 
         submission.answer_key
@@ -294,7 +313,7 @@ const getAnalysis = async (req, res) => {
 const autoGradeText = async (description, fileUrl, answerKey, studentAnswer) => {
   try {
     const contentParts = [
-      `IMPORTANT GRADING RULE: Calculate marks_awarded and max_marks explicitly. The overall_grade MUST be the percentage (marks_awarded/max_marks * 100). The summary MUST start with "You got X out of Y (Z%)." DO NOT include any letter grade.`,
+      `IMPORTANT GRADING RULE: Scan for exact point annotations like "(3 pt)" in the assignment text or document. Calculate marks_awarded and dynamically build max_marks directly from those extracted points natively. The overall_grade MUST be the percentage. The summary MUST start with "You got X out of Y (Z%)." DO NOT include any letter grade.`,
       ASSIGNMENT_GRADING_PROMPT,
       '\n\n=== TEACHER ANSWER KEY ===\n', answerKey,
       '\n\n=== ASSIGNMENT (TEXT) ===\n', description,

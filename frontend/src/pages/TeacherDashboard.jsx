@@ -226,8 +226,11 @@ const SubmissionsSection = ({ submissions, assignments, fetchAll }) => {
 /* ── Upload Exam ── */
 const DEPARTMENTS = ['IS', 'IT', 'CS', 'Cyber', 'Software'];
 
+// Exam Types
+const EXAM_TYPES = ['Midterm Exam', 'Final Exam'];
+
 const UploadSection = ({ assignments, fetchAll }) => {
-  const [form, setForm] = useState({ department: '', assignment_id: '' });
+  const [form, setForm] = useState({ department: '', exam_type: '' });
   const [questionFile, setQuestionFile] = useState(null);
   const [teacherFile, setTeacherFile] = useState(null);
   const [studentFiles, setStudentFiles] = useState([]);
@@ -242,6 +245,7 @@ const UploadSection = ({ assignments, fetchAll }) => {
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!form.department) return setMessage('Please select a department');
+    if (!form.exam_type)  return setMessage('Please select whether this is a Midterm or Final Exam');
     if (!questionFile)    return setMessage('Please upload the exam question image');
     if (!teacherFile)     return setMessage('Please upload the teacher answer image');
     if (studentFiles.length === 0) return setMessage('Please upload at least one student answer image');
@@ -252,7 +256,7 @@ const UploadSection = ({ assignments, fetchAll }) => {
 
     const fd = new FormData();
     fd.append('department', form.department);
-    if (form.assignment_id) fd.append('assignment_id', form.assignment_id);
+    fd.append('exam_type', form.exam_type);
     fd.append('question_image', questionFile);
     fd.append('teacher_answer_image', teacherFile);
     studentFiles.forEach((f) => fd.append('student_answer_images', f));
@@ -263,7 +267,7 @@ const UploadSection = ({ assignments, fetchAll }) => {
       });
       setMessage(data.message);
       setResults(data.results);
-      setForm({ department: '', assignment_id: '' });
+      setForm({ department: '', exam_type: '' });
       setQuestionFile(null);
       setTeacherFile(null);
       setStudentFiles([]);
@@ -336,18 +340,19 @@ const UploadSection = ({ assignments, fetchAll }) => {
             )}
           </div>
 
-          {/* Assignment — optional */}
+          {/* Exam Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Assignment <span className="text-gray-400 text-xs">(optional)</span>
+              Exam Selection <span className="text-red-500">*</span>
             </label>
             <select
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              value={form.assignment_id}
-              onChange={(e) => setForm({ ...form, assignment_id: e.target.value })}
+              value={form.exam_type}
+              onChange={(e) => setForm({ ...form, exam_type: e.target.value })}
+              required
             >
-              <option value="">— No assignment (general exam) —</option>
-              {assignments.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
+              <option value="">— Select Exam Type —</option>
+              {EXAM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
 

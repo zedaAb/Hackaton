@@ -69,7 +69,7 @@ const submitAssignment = async (req, res) => {
 const getMySubmissions = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT s.*, COALESCE(a.title, 'General Exam') as assignment_title,
+      `SELECT s.*, COALESCE(s.exam_type, a.title, 'General Exam') as assignment_title,
               a.description, COALESCE(a.max_marks, 100) as max_marks,
               u.name as teacher_name
        FROM submissions s
