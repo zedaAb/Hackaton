@@ -754,8 +754,9 @@ const MaterialsSection = ({ materials, fetchAll }) => {
 };
 
 /* ── Worksheets ── */
-const WorksheetsSection = ({ worksheets, fetchAll }) => {
+const WorksheetsSection = ({ worksheets, fetchAll, materials }) => {
   const [form, setForm] = useState({ title: '', course: '', department: '', description: '', answer_key: '' });
+  const [selectedMaterials, setSelectedMaterials] = useState([]);
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -767,10 +768,12 @@ const WorksheetsSection = ({ worksheets, fetchAll }) => {
       const fd = new FormData();
       Object.keys(form).forEach(key => fd.append(key, form[key]));
       if (file) fd.append('worksheet_file', file);
+      if (selectedMaterials.length > 0) fd.append('material_ids', JSON.stringify(selectedMaterials));
 
       await api.post('/teacher/worksheets', fd);
       setMessage('Worksheet created successfully!');
       setForm({ title: '', course: '', department: '', description: '', answer_key: '' });
+      setSelectedMaterials([]);
       setFile(null);
       fetchAll();
     } catch {
@@ -803,12 +806,41 @@ const WorksheetsSection = ({ worksheets, fetchAll }) => {
             <select
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
               value={form.department}
-              onChange={(e) => setForm({ ...form, department: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, department: e.target.value });
+                setSelectedMaterials([]);
+              }}
               required
             >
               <option value="">— Select Target Department —</option>
               {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
+
+            {form.department && (
+              <div className="border border-indigo-100 bg-indigo-50/30 p-3 rounded-lg">
+                <p className="text-xs font-semibold text-indigo-800 mb-2">Attach Course Materials (Optional)</p>
+                <div className="max-h-32 overflow-y-auto space-y-2">
+                  {materials?.filter(m => m.department === form.department).map(m => (
+                    <label key={m.id} className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="mt-1 rounded text-indigo-600 focus:ring-indigo-500"
+                        checked={selectedMaterials.includes(m.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedMaterials([...selectedMaterials, m.id]);
+                          else setSelectedMaterials(selectedMaterials.filter(id => id !== m.id));
+                        }}
+                      />
+                      <span>{m.title}</span>
+                    </label>
+                  ))}
+                  {materials?.filter(m => m.department === form.department).length === 0 && (
+                    <span className="text-xs text-gray-400 italic">No materials found for this department.</span>
+                  )}
+                </div>
+              </div>
+            )}
+
             <textarea
               placeholder="Worksheet Questions / Description"
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
@@ -861,6 +893,18 @@ const WorksheetsSection = ({ worksheets, fetchAll }) => {
                   <a href={`${FILE_BASE}${ws.file_url}`} target="_blank" rel="noreferrer" className="inline-block text-xs text-indigo-600 underline">
                     View Worksheet File
                   </a>
+                )}
+                {ws.attached_materials && ws.attached_materials.length > 0 && (
+                  <div className="mt-2 border-t pt-2 border-gray-100">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Attached Materials</p>
+                    <div className="flex flex-wrap gap-1">
+                      {ws.attached_materials.map(m => (
+                        <a key={m.id} href={`${FILE_BASE}${m.file_url}`} target="_blank" rel="noreferrer" className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                          📄 {m.title}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             ))}
@@ -1066,7 +1110,7 @@ const TeacherDashboard = () => {
         <Route path="upload" element={<UploadSection assignments={assignments} fetchAll={fetchAll} />} />
         <Route path="grading" element={<AIGradingSection submissions={submissions} assignments={assignments} fetchAll={fetchAll} />} />
         <Route path="materials" element={<MaterialsSection materials={materials} fetchAll={fetchAll} />} />
-        <Route path="worksheets" element={<WorksheetsSection worksheets={worksheets} fetchAll={fetchAll} />} />
+        <Route path="worksheets" element={<WorksheetsSection worksheets={worksheets} materials={materials} fetchAll={fetchAll} />} />
         <Route path="*" element={<Navigate to="/teacher" />} />
       </Routes>
     </DashboardLayout>

@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const path = require('path');
 const { extractIdentity } = require('./aiController');
 
 const DEPARTMENTS = ['IS', 'IT', 'CS', 'Cyber', 'Software'];
@@ -101,29 +102,48 @@ const uploadBulkExam = async (req, res) => {
 
     // AI extracts student ID and name from the paper
     const identity = await extractIdentity(studentPath);
+    const filenameNoExt = path.parse(studentFile.originalname).name;
+
+    const cleanId = (identity.student_id && identity.student_id !== '?') ? identity.student_id : null;
+    const cleanName = (identity.student_name && identity.student_name !== '?') ? identity.student_name : null;
 
     let dbStudentId = null;
-    let matchedName = identity.student_name || 'Unknown';
+    let matchedName = cleanName || filenameNoExt || 'Unknown';
 
     // Match by student_id
-    if (identity.student_id) {
+    if (cleanId) {
       const match = await pool.query(
         `SELECT id, name FROM users
          WHERE role='student' AND department=$1
            AND (student_id ILIKE $2 OR student_id ILIKE $3)`,
-        [department, identity.student_id, `%${identity.student_id}%`]
+        [department, cleanId, `%${cleanId}%`]
       );
       if (match.rows[0]) { dbStudentId = match.rows[0].id; matchedName = match.rows[0].name; }
     }
 
-    // Fallback: match by name
-    if (!dbStudentId && identity.student_name) {
+    // Fallback 1: match by name from OCR
+    if (!dbStudentId && cleanName) {
       const nameMatch = await pool.query(
         `SELECT id, name FROM users
          WHERE role='student' AND department=$1 AND name ILIKE $2`,
-        [department, `%${identity.student_name}%`]
+        [department, `%${cleanName}%`]
       );
       if (nameMatch.rows[0]) { dbStudentId = nameMatch.rows[0].id; matchedName = nameMatch.rows[0].name; }
+    }
+
+    // Fallback 2: match by filename
+    if (!dbStudentId) {
+      const fnMatch = await pool.query(
+        `SELECT id, name FROM users
+         WHERE role='student' AND department=$1 
+         AND (name ILIKE $2 OR student_id ILIKE $2)`,
+        [department, `%${filenameNoExt}%`]
+      );
+      if (fnMatch.rows.length >= 1) { 
+         // If exact 1 match, or multiple matches (take first)
+         dbStudentId = fnMatch.rows[0].id; 
+         matchedName = fnMatch.rows[0].name;
+      }
     }
 
     if (!dbStudentId) {
@@ -286,21 +306,50 @@ const getTeacherMaterials = async (req, res) => {
 
 // Create a worksheet
 const createWorksheet = async (req, res) => {
-  const { title, course, department, description, answer_key } = req.body;
+  const { title, course, department, description, answer_key, material_ids } = req.body;
+  
   if (!title?.trim() || !course?.trim() || !description?.trim() || !answer_key?.trim())
     return res.status(400).json({ message: 'All fields are required' });
   if (!department || !DEPARTMENTS.includes(department))
     return res.status(400).json({ message: 'Valid department is required' });
 
   const file_url = req.file ? `uploads/${req.file.filename}` : null;
+  let parsedMaterials = [];
+  if (material_ids) {
+    try {
+      parsedMaterials = JSON.parse(material_ids);
+    } catch {
+      return res.status(400).json({ message: 'Invalid material_ids format' });
+    }
+  }
 
   try {
-    const result = await pool.query(
-      `INSERT INTO worksheets (title, course, department, description, file_url, answer_key, teacher_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [title.trim(), course.trim(), department, description.trim(), file_url, answer_key.trim(), req.user.id]
-    );
-    res.status(201).json(result.rows[0]);
+    // Start transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const wsResult = await client.query(
+        `INSERT INTO worksheets (title, course, department, description, file_url, answer_key, teacher_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [title.trim(), course.trim(), department, description.trim(), file_url, answer_key.trim(), req.user.id]
+      );
+      const worksheet = wsResult.rows[0];
+
+      for (const mId of parsedMaterials) {
+        await client.query(
+          `INSERT INTO worksheet_materials (worksheet_id, material_id) VALUES ($1, $2)`,
+          [worksheet.id, mId]
+        );
+      }
+
+      await client.query('COMMIT');
+      res.status(201).json(worksheet);
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -310,7 +359,13 @@ const createWorksheet = async (req, res) => {
 const getTeacherWorksheets = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT w.*, COUNT(s.id) as submission_count
+      `SELECT w.*, COUNT(s.id) as submission_count,
+       (
+         SELECT json_agg(json_build_object('id', m.id, 'title', m.title, 'file_url', m.file_url))
+         FROM worksheet_materials wm
+         JOIN materials m ON wm.material_id = m.id
+         WHERE wm.worksheet_id = w.id
+       ) as attached_materials
        FROM worksheets w
        LEFT JOIN worksheet_submissions s ON s.worksheet_id = w.id
        WHERE w.teacher_id=$1

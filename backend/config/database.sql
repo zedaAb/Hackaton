@@ -80,3 +80,21 @@ CREATE TABLE worksheet_submissions (
     ai_analysis JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Mapping relation between worksheets and materials
+CREATE TABLE worksheet_materials (
+    worksheet_id INT REFERENCES worksheets(id) ON DELETE CASCADE,
+    material_id INT REFERENCES materials(id) ON DELETE CASCADE,
+    PRIMARY KEY (worksheet_id, material_id)
+);
+
+-- AI QA Sessions (Conversational tutor based on materials)
+CREATE TABLE ai_qa_sessions (
+    id SERIAL PRIMARY KEY,
+    student_id INT REFERENCES users(id) ON DELETE CASCADE,
+    material_id INT REFERENCES materials(id) ON DELETE CASCADE,
+    chat_history JSONB DEFAULT '[]'::jsonb,
+    grade DECIMAL(5, 2),
+    ai_feedback TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

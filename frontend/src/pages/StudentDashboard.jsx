@@ -472,8 +472,27 @@ const WorksheetsSection = () => {
               {ws.file_url && (
                 <div className="mb-4">
                   <a href={`${FILE_BASE}${ws.file_url}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-100">
-                    📄 View Attached File
+                    📄 View Worksheet Document
                   </a>
+                </div>
+              )}
+
+              {ws.attached_materials && ws.attached_materials.length > 0 && (
+                <div className="mb-6 bg-white border border-indigo-100 rounded-lg p-4 shadow-sm">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    📚 Required Course Materials
+                  </h4>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    {ws.attached_materials.map(m => (
+                      <a key={m.id} href={`${FILE_BASE}${m.file_url}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2 rounded-md hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-colors group">
+                        <span className="text-xl group-hover:scale-110 transition-transform">📄</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{m.title}</p>
+                          <p className="text-xs text-indigo-600 mt-0.5">Click to study</p>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -536,6 +555,211 @@ const WorksheetsSection = () => {
   );
 };
 
+/* ── AI QA Section (Conversational Tutor & Testing) ── */
+const AIQASection = () => {
+  const [materials, setMaterials] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Chat state
+  const [activeSession, setActiveSession] = useState(null);
+  const [message, setMessage] = useState('');
+  const [chatting, setChatting] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
+
+  const fetchHistory = () => {
+    setLoading(true);
+    Promise.all([
+      api.get('/student/materials'),
+      api.get('/student/qa/history')
+    ])
+      .then(([matRes, histRes]) => {
+        setMaterials(matRes.data);
+        setHistory(histRes.data);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchHistory(); }, []);
+
+  const handleSendMessage = async (e, isNewSessionParams = null) => {
+    if (e) e.preventDefault();
+    const msgToSend = message.trim();
+    if (!msgToSend && !isNewSessionParams) return;
+    
+    setChatting(true);
+    try {
+      const payload = isNewSessionParams 
+        ? { material_id: isNewSessionParams.materialId, message: "Hello! I would like to explore this module." } 
+        : { session_id: activeSession.id, message: msgToSend };
+      
+      const res = await api.post('/student/qa/chat', payload);
+      setActiveSession(res.data);
+      setMessage('');
+      fetchHistory(); // Refresh session list
+    } catch {
+      alert('Error communicating with AI tutor');
+    } finally {
+      setChatting(false);
+    }
+  };
+
+  const handleEvaluate = async () => {
+    if (!activeSession) return;
+    setEvaluating(true);
+    try {
+      const res = await api.post('/student/qa/evaluate', { session_id: activeSession.id });
+      setActiveSession(res.data);
+      fetchHistory();
+    } catch {
+      alert('Error evaluating session');
+    } finally {
+      setEvaluating(false);
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-1">AI QA Tutor</h2>
+      <p className="text-gray-400 text-sm mb-6">Chat with your AI teacher about any material. Ask questions or request an evaluation!</p>
+
+      {!activeSession ? (
+        <>
+          {/* Start New Session */}
+          <div className="bg-white rounded-xl shadow border border-gray-100 p-6 mb-8">
+            <h3 className="font-semibold text-gray-800 mb-4">Start a new study session:</h3>
+            <div className="flex flex-wrap gap-3">
+              {materials.length === 0 ? (
+                <p className="text-sm text-gray-400">No materials available to study.</p>
+              ) : (
+                materials.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => handleSendMessage(null, { materialId: m.id })}
+                    disabled={chatting}
+                    className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-4 py-2 rounded-lg text-sm hover:bg-indigo-100 transition-colors flex items-center gap-2"
+                  >
+                    🚀 Start <strong>{m.title}</strong>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* History */}
+          <h3 className="font-semibold text-gray-800 mb-4">Past Sessions</h3>
+          {loading ? (
+            <div className="text-gray-400 text-sm flex items-center gap-2"><div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />Loading history...</div>
+          ) : history.length === 0 ? (
+            <p className="text-gray-400 text-sm">No study sessions initiated yet.</p>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {history.map(h => (
+                <div key={h.id} className="bg-white rounded-lg border p-4 shadow-sm hover:border-indigo-300 transition-all cursor-pointer" onClick={() => setActiveSession(h)}>
+                  <div className="flex justify-between items-start mb-2">
+                    <p className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1">📚 {h.material_title}</p>
+                    {h.grade !== null ? (
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${h.grade >= 80 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>Score: {h.grade}</span>
+                    ) : (
+                      <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded">Active</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400">{(h.chat_history || []).length / 2} interactions</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        /* Active Chat Session */
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[600px] overflow-hidden animation-fade-in relative">
+          {/* Header */}
+          <div className="bg-indigo-800 p-4 flex justify-between items-center text-white shrink-0">
+            <div className="flex items-center gap-3">
+               <button onClick={() => setActiveSession(null)} className="text-indigo-200 hover:text-white transition-colors bg-indigo-700/50 p-1.5 rounded-full">
+                 🔙 Back
+               </button>
+               <div>
+                 <h3 className="font-bold text-sm">Chatting with AI Tutor</h3>
+                 <p className="text-xs text-indigo-300">Target Material: ID {activeSession.material_id}</p>
+               </div>
+            </div>
+            {activeSession.grade === null && (
+              <button 
+                onClick={handleEvaluate} 
+                disabled={evaluating}
+                className="bg-green-500 hover:bg-green-400 text-xs font-bold px-4 py-2 rounded-lg text-white shadow-sm transition-colors"
+               >
+                {evaluating ? 'Evaluating...' : 'Finish & Evaluate Me'}
+              </button>
+            )}
+          </div>
+          
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+             {(activeSession.chat_history || []).map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-sm whitespace-pre-wrap ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white border border-gray-200 text-gray-800 rounded-bl-none'}`}>
+                    {msg.role !== 'user' && <p className="text-[10px] font-bold text-indigo-400 mb-1">AI Tutor</p>}
+                    {msg.text}
+                  </div>
+                </div>
+             ))}
+             {chatting && (
+                <div className="flex justify-start">
+                   <div className="bg-white border border-gray-100 text-gray-400 text-xs px-4 py-3 rounded-2xl rounded-bl-none shadow-sm flex gap-2 items-center">
+                     <span className="animate-bounce">●</span><span className="animate-bounce delay-75">●</span><span className="animate-bounce delay-150">●</span>
+                   </div>
+                </div>
+             )}
+          </div>
+
+          {/* Footer Form OR Grade Visual */}
+          {activeSession.grade !== null ? (
+            <div className="bg-indigo-50 border-t border-indigo-100 p-5 shrink-0">
+               <h4 className="font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                 🏆 Evaluation Result
+                 <span className={`px-2 py-0.5 rounded text-xs ${activeSession.grade >= 80 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{activeSession.grade} / 100</span>
+               </h4>
+               <p className="text-sm text-indigo-800 mb-4">{activeSession.ai_feedback}</p>
+               {activeSession.ai_analysis && (
+                 <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div className="bg-white p-3 rounded-lg border border-green-100 shadow-sm">
+                      <p className="font-bold text-green-700 mb-1">Strengths</p>
+                      <ul className="list-disc pl-4 text-gray-600">{(activeSession.ai_analysis.strengths || []).map((s,i)=><li key={i}>{s}</li>)}</ul>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-red-100 shadow-sm">
+                      <p className="font-bold text-red-700 mb-1">Area for Improvement</p>
+                      <ul className="list-disc pl-4 text-gray-600">{(activeSession.ai_analysis.weaknesses || []).map((w,i)=><li key={i}>{w}</li>)}</ul>
+                    </div>
+                 </div>
+               )}
+            </div>
+          ) : (
+            <form onSubmit={handleSendMessage} className="bg-white border-t p-3 flex gap-3 items-end shrink-0">
+               <textarea 
+                  rows={2}
+                  className="flex-1 w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white resize-none transition-colors"
+                  placeholder="Ask a question or request a conceptual test..."
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                     if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(e); }
+                  }}
+               />
+               <button type="submit" disabled={!message.trim() || chatting} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-3 rounded-xl disabled:opacity-50 transition-colors">
+                  <span className="text-xl leading-none">🚀</span>
+               </button>
+            </form>
+          )}
+
+        </div>
+      )}
+    </div>
+  );
+};
+
 /* ── Root component ── */
 const StudentDashboard = () => {
   const [submissions, setSubmissions] = useState([]);
@@ -566,6 +790,7 @@ const StudentDashboard = () => {
         <Route path="grades" element={<GradesSection submissions={submissions} loading={loading} onViewAnalysis={handleViewAnalysis} />} />
         <Route path="materials" element={<MaterialsSection />} />
         <Route path="worksheets" element={<WorksheetsSection />} />
+        <Route path="qa" element={<AIQASection />} />
         <Route path="*" element={<Navigate to="/student" />} />
       </Routes>
       {selected && <AnalysisModal submission={selected} onClose={() => setSelected(null)} />}

@@ -7,6 +7,7 @@ const studentLinks = [
   { to: '/student/grades', label: 'My Grades', icon: '📊' },
   { to: '/student/materials', label: 'Materials', icon: '📚' },
   { to: '/student/worksheets', label: 'Worksheets', icon: '📄' },
+  { to: '/student/qa', label: 'AI QA Tutor', icon: '🤖' },
 ];
 
 const teacherLinks = [

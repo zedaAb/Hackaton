@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { autoGradeText } = require('./aiController');
+const { autoGradeText, chatWithMaterial, evaluateQASession } = require('./aiController');
 
 // Get all available assignments (not yet submitted by this student)
 const getAvailableAssignments = async (req, res) => {
@@ -128,7 +128,13 @@ const getWorksheets = async (req, res) => {
         EXISTS (
           SELECT 1 FROM worksheet_submissions s
           WHERE s.worksheet_id = w.id AND s.student_id = $1
-        ) as already_submitted
+        ) as already_submitted,
+       (
+         SELECT json_agg(json_build_object('id', m.id, 'title', m.title, 'file_url', m.file_url))
+         FROM worksheet_materials wm
+         JOIN materials m ON wm.material_id = m.id
+         WHERE wm.worksheet_id = w.id
+       ) as attached_materials
        FROM worksheets w
        JOIN users u ON w.teacher_id = u.id
        WHERE w.department = (SELECT department FROM users WHERE id = $1)
@@ -196,7 +202,106 @@ const getMyWorksheetSubmissions = async (req, res) => {
   }
 };
 
+// AI QA: Chat with Tutor
+const chatQA = async (req, res) => {
+  const { session_id, material_id, message } = req.body;
+  if (!message?.trim()) return res.status(400).json({ message: 'Message required' });
+
+  try {
+    let session;
+    let mat;
+
+    if (session_id) {
+       const ps = await pool.query('SELECT p.*, m.file_url FROM ai_qa_sessions p JOIN materials m ON p.material_id = m.id WHERE p.id=$1 AND p.student_id=$2', [session_id, req.user.id]);
+       if (!ps.rows[0]) return res.status(404).json({ message: 'Session not found' });
+       session = ps.rows[0];
+       mat = { file_url: session.file_url };
+    } else {
+       if (!material_id) return res.status(400).json({ message: 'material_id required' });
+       const mQuery = await pool.query('SELECT * FROM materials WHERE id=$1', [material_id]);
+       if (!mQuery.rows[0]) return res.status(404).json({ message: 'Material not found' });
+       mat = mQuery.rows[0];
+
+       const usr = await pool.query('SELECT department FROM users WHERE id=$1', [req.user.id]);
+       if (usr.rows[0].department !== mat.department) return res.status(403).json({ message: 'Access denied' });
+
+       const createRes = await pool.query(
+         `INSERT INTO ai_qa_sessions (student_id, material_id, chat_history) VALUES ($1, $2, $3) RETURNING *`,
+         [req.user.id, material_id, JSON.stringify([])]
+       );
+       session = createRes.rows[0];
+    }
+
+    if (session.grade != null) return res.status(400).json({ message: 'Session already graded/finished' });
+
+    const history = session.chat_history || [];
+    const newAiMessage = await chatWithMaterial(mat.file_url, history, message);
+
+    history.push({ role: 'user', text: message });
+    history.push({ role: 'model', text: newAiMessage });
+
+    const result = await pool.query(
+      `UPDATE ai_qa_sessions SET chat_history=$1 WHERE id=$2 RETURNING *`,
+      [JSON.stringify(history), session.id]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// AI QA: Evaluate Session
+const evaluateQA = async (req, res) => {
+  const { session_id } = req.body;
+  if (!session_id) return res.status(400).json({ message: 'Session ID required' });
+
+  try {
+    const ps = await pool.query(
+      `SELECT p.*, m.file_url 
+       FROM ai_qa_sessions p
+       JOIN materials m ON p.material_id = m.id
+       WHERE p.id=$1 AND p.student_id=$2`,
+      [session_id, req.user.id]
+    );
+    if (!ps.rows[0]) return res.status(404).json({ message: 'Session not found' });
+    if (ps.rows[0].grade != null) return res.status(400).json({ message: 'Already graded' });
+
+    const session = ps.rows[0];
+    const analysis = await evaluateQASession(session.file_url, session.chat_history || []);
+
+    const result = await pool.query(
+      `UPDATE ai_qa_sessions 
+       SET grade=$1, ai_feedback=$2 
+       WHERE id=$3 RETURNING *`,
+      [analysis.overall_grade, JSON.stringify(analysis), session_id]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Get student's QA history
+const getQAHistory = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT p.*, m.title as material_title 
+       FROM ai_qa_sessions p
+       JOIN materials m ON p.material_id = m.id
+       WHERE p.student_id=$1 
+       ORDER BY p.created_at DESC`,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = { 
   getAvailableAssignments, submitAssignment, getMySubmissions, getStats, getMaterials,
-  getWorksheets, submitWorksheet, getMyWorksheetSubmissions
+  getWorksheets, submitWorksheet, getMyWorksheetSubmissions,
+  chatQA, evaluateQA, getQAHistory
 };
