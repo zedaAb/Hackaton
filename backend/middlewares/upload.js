@@ -19,11 +19,11 @@ const upload = multer({ storage, fileFilter });
 // Single file (legacy)
 const single = upload.single('exam');
 
-// Three-image upload: question + teacher answer + student answer
-const tripleExam = upload.fields([
+// Bulk exam upload: 1 question + 1 teacher answer + many student answers
+const bulkExam = upload.fields([
   { name: 'question_image', maxCount: 1 },
   { name: 'teacher_answer_image', maxCount: 1 },
-  { name: 'student_answer_image', maxCount: 1 },
+  { name: 'student_answer_images', maxCount: 50 }, // multiple student papers
 ]);
 
-module.exports = { single, tripleExam };
+module.exports = { single, bulkExam };

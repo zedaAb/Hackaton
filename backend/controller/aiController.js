@@ -47,7 +47,14 @@ Return ONLY a valid JSON object — no markdown, no extra text:
   "study_resources": ["Topic to review 1", "Topic to review 2"]
 }`;
 
-// Helper: read image file and return base64 inline data part
+const IDENTITY_PROMPT = `Look at this student exam paper image.
+Extract the student's ID number and full name written on the paper (usually at the top).
+Return ONLY a valid JSON object — no markdown, no extra text:
+{
+  "student_id": "the ID number found on the paper, or null if not found",
+  "student_name": "the full name found on the paper, or null if not found"
+}`;
+
 const imageToInlineData = (filePath) => {
   const ext = path.extname(filePath).toLowerCase();
   const mimeType = ext === '.png' ? 'image/png' : ext === '.pdf' ? 'application/pdf' : 'image/jpeg';
@@ -55,13 +62,28 @@ const imageToInlineData = (filePath) => {
   return { inlineData: { data, mimeType } };
 };
 
+// Extract student identity from a paper image using AI
+const extractIdentity = async (imagePath) => {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const result = await model.generateContent([IDENTITY_PROMPT, imageToInlineData(imagePath)]);
+    const raw = result.response.text().replace(/```json|```/g, '').trim();
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return { student_id: null, student_name: null };
+    return JSON.parse(match[0]);
+  } catch {
+    return { student_id: null, student_name: null };
+  }
+};
+
+// Grade a single submission
 const gradeSubmission = async (req, res) => {
   const { id } = req.params;
   try {
     const sub = await pool.query(
       `SELECT s.*, a.answer_key, a.title as assignment_title, a.max_marks
        FROM submissions s
-       JOIN assignments a ON s.assignment_id = a.id
+       LEFT JOIN assignments a ON s.assignment_id = a.id
        WHERE s.id=$1`,
       [id]
     );
@@ -73,7 +95,6 @@ const gradeSubmission = async (req, res) => {
     let contentParts = [];
 
     if (submission.submission_type === 'image') {
-      // Require all 3 images
       if (!submission.question_image_url)
         return res.status(400).json({ message: 'Exam question image is missing' });
       if (!submission.teacher_answer_image_url)
@@ -82,8 +103,8 @@ const gradeSubmission = async (req, res) => {
         return res.status(400).json({ message: 'Student answer image is missing' });
 
       const questionPath = path.join(__dirname, '..', submission.question_image_url);
-      const teacherPath = path.join(__dirname, '..', submission.teacher_answer_image_url);
-      const studentPath = path.join(__dirname, '..', submission.image_url);
+      const teacherPath  = path.join(__dirname, '..', submission.teacher_answer_image_url);
+      const studentPath  = path.join(__dirname, '..', submission.image_url);
 
       for (const p of [questionPath, teacherPath, studentPath]) {
         if (!fs.existsSync(p)) return res.status(404).json({ message: `File not found: ${p}` });
@@ -99,10 +120,8 @@ const gradeSubmission = async (req, res) => {
         imageToInlineData(studentPath),
       ];
     } else {
-      // Text submission — use answer_key as teacher answer
       if (!submission.answer_key)
         return res.status(400).json({ message: 'No answer key set for this assignment' });
-
       contentParts = [
         GRADING_PROMPT +
         '\n\n=== EXAM QUESTION ===\n(Refer to the assignment description)\n' +
@@ -113,7 +132,6 @@ const gradeSubmission = async (req, res) => {
 
     const aiResult = await model.generateContent(contentParts);
     const rawText = aiResult.response.text();
-
     const cleaned = rawText.replace(/```json|```/g, '').trim();
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('AI did not return valid JSON');
@@ -144,9 +162,9 @@ const getAnalysis = async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
-      `SELECT s.*, a.title as assignment_title, u.name as student_name
+      `SELECT s.*, COALESCE(a.title,'General Exam') as assignment_title, u.name as student_name
        FROM submissions s
-       JOIN assignments a ON s.assignment_id = a.id
+       LEFT JOIN assignments a ON s.assignment_id = a.id
        JOIN users u ON s.student_id = u.id
        WHERE s.id=$1`,
       [id]
@@ -158,4 +176,4 @@ const getAnalysis = async (req, res) => {
   }
 };
 
-module.exports = { gradeSubmission, getAnalysis };
+module.exports = { gradeSubmission, getAnalysis, extractIdentity };

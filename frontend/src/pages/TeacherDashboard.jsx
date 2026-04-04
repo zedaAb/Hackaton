@@ -214,88 +214,193 @@ const SubmissionsSection = ({ submissions, assignments, fetchAll }) => {
 };
 
 /* ── Upload Exam ── */
-const UploadSection = ({ students, assignments, fetchAll }) => {
-  const [form, setForm] = useState({ student_id: '', assignment_id: '' });
-  const [files, setFiles] = useState({ question_image: null, teacher_answer_image: null, student_answer_image: null });
-  const [message, setMessage] = useState('');
+const DEPARTMENTS = ['IS', 'IT', 'CS', 'Cyber', 'Software'];
+
+const UploadSection = ({ assignments, fetchAll }) => {
+  const [form, setForm] = useState({ department: '', assignment_id: '' });
+  const [questionFile, setQuestionFile] = useState(null);
+  const [teacherFile, setTeacherFile] = useState(null);
+  const [studentFiles, setStudentFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [results, setResults] = useState(null);
+
+  const handleStudentFiles = (e) => {
+    setStudentFiles(Array.from(e.target.files));
+  };
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (!files.question_image) return setMessage('Please upload the exam question image');
-    if (!files.teacher_answer_image) return setMessage('Please upload the teacher answer image');
-    if (!files.student_answer_image) return setMessage('Please upload the student answer image');
+    if (!form.department) return setMessage('Please select a department');
+    if (!questionFile)    return setMessage('Please upload the exam question image');
+    if (!teacherFile)     return setMessage('Please upload the teacher answer image');
+    if (studentFiles.length === 0) return setMessage('Please upload at least one student answer image');
 
     setUploading(true);
+    setMessage('');
+    setResults(null);
+
     const fd = new FormData();
-    fd.append('student_id', form.student_id);
-    fd.append('assignment_id', form.assignment_id);
-    fd.append('question_image', files.question_image);
-    fd.append('teacher_answer_image', files.teacher_answer_image);
-    fd.append('student_answer_image', files.student_answer_image);
+    fd.append('department', form.department);
+    if (form.assignment_id) fd.append('assignment_id', form.assignment_id);
+    fd.append('question_image', questionFile);
+    fd.append('teacher_answer_image', teacherFile);
+    studentFiles.forEach((f) => fd.append('student_answer_images', f));
+
     try {
-      await api.post('/teacher/upload-exam', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      setMessage('Exam uploaded successfully. You can now grade it with AI.');
-      setForm({ student_id: '', assignment_id: '' });
-      setFiles({ question_image: null, teacher_answer_image: null, student_answer_image: null });
+      const { data } = await api.post('/teacher/upload-exam', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setMessage(data.message);
+      setResults(data.results);
+      setForm({ department: '', assignment_id: '' });
+      setQuestionFile(null);
+      setTeacherFile(null);
+      setStudentFiles([]);
       fetchAll();
     } catch (err) {
       setMessage(err.response?.data?.message || 'Upload failed');
-    } finally { setUploading(false); }
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const FileInput = ({ label, field, icon, hint }) => (
+  const FileBox = ({ label, icon, hint, file, onChange, multiple }) => (
     <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 hover:border-indigo-300 transition-colors">
-      <label className="block text-sm font-medium text-gray-700 mb-1">{icon} {label}</label>
+      <p className="text-sm font-medium text-gray-700 mb-1">{icon} {label}</p>
       {hint && <p className="text-xs text-gray-400 mb-2">{hint}</p>}
-      <input
-        type="file" accept="image/*,.pdf"
+      <input type="file" accept="image/*,.pdf" multiple={multiple}
         className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 file:text-xs"
-        onChange={(e) => setFiles({ ...files, [field]: e.target.files[0] })}
+        onChange={onChange}
       />
-      {files[field] && <p className="text-xs text-green-600 mt-1">✓ {files[field].name}</p>}
+      {!multiple && file && (
+        <p className="text-xs text-green-600 mt-1">✓ {file.name}</p>
+      )}
+      {multiple && studentFiles.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {studentFiles.map((f, i) => (
+            <p key={i} className="text-xs text-green-600">✓ {f.name}</p>
+          ))}
+          <p className="text-xs text-indigo-600 font-medium">{studentFiles.length} student paper(s) selected</p>
+        </div>
+      )}
     </div>
   );
 
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-800 mb-1">Upload Exam</h2>
-      <p className="text-gray-400 text-sm mb-6">Upload 3 images — the AI will compare student vs teacher answer to grade</p>
+      <p className="text-gray-400 text-sm mb-6">
+        Upload 1 question + 1 teacher answer + multiple student papers. AI will identify each student from their paper.
+      </p>
 
       <div className="bg-white rounded-xl shadow p-6 max-w-2xl">
         {message && (
-          <div className={`mb-4 px-4 py-2 rounded text-sm flex justify-between ${message.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+          <div className={`mb-4 px-4 py-2 rounded text-sm flex justify-between items-center ${
+            message.includes('failed') || message.includes('error') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'
+          }`}>
             <span>{message}</span>
             <button onClick={() => setMessage('')}>&times;</button>
           </div>
         )}
 
         <form onSubmit={handleUpload} className="space-y-5">
-          <div className="grid grid-cols-2 gap-3">
-            <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.student_id} onChange={(e) => setForm({ ...form, student_id: e.target.value })} required>
-              <option value="">Select Student</option>
-              {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          {/* Department dropdown */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Department <span className="text-red-500">*</span>
+            </label>
+            <select
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              value={form.department}
+              onChange={(e) => setForm({ ...form, department: e.target.value })}
+              required
+            >
+              <option value="">— Select Department —</option>
+              {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
-            <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.assignment_id} onChange={(e) => setForm({ ...form, assignment_id: e.target.value })} required>
-              <option value="">Select Assignment</option>
+            {form.department && (
+              <p className="text-xs text-indigo-600 mt-1">
+                Student papers will be matched to <strong>{form.department}</strong> students
+              </p>
+            )}
+          </div>
+
+          {/* Assignment — optional */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Assignment <span className="text-gray-400 text-xs">(optional)</span>
+            </label>
+            <select
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              value={form.assignment_id}
+              onChange={(e) => setForm({ ...form, assignment_id: e.target.value })}
+            >
+              <option value="">— No assignment (general exam) —</option>
               {assignments.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
             </select>
           </div>
 
-          <div className="space-y-3">
-            <FileInput label="Exam Question" field="question_image" icon="📄" hint="Photo of the exam question paper" />
-            <FileInput label="Teacher's Correct Answer" field="teacher_answer_image" icon="📘" hint="Photo of the model answer / marking scheme" />
-            <FileInput label="Student's Answer" field="student_answer_image" icon="📝" hint="Photo of the student's handwritten answer" />
+          {/* Single images */}
+          <FileBox label="Exam Question" icon="📄" hint="One photo of the exam question paper"
+            file={questionFile} onChange={(e) => setQuestionFile(e.target.files[0])} />
+          <FileBox label="Teacher's Correct Answer" icon="📘" hint="One photo of the model answer / marking scheme"
+            file={teacherFile} onChange={(e) => setTeacherFile(e.target.files[0])} />
+
+          {/* Multiple student images */}
+          <FileBox label="Student Answer Papers" icon="📝"
+            hint="Select ALL student answer papers at once. AI will read each paper, extract the student ID and name, and match them automatically."
+            multiple onChange={handleStudentFiles} />
+
+          <div className="bg-indigo-50 rounded-lg p-3 text-xs text-indigo-700 space-y-1">
+            <p>💡 Make sure each student paper has their <strong>Student ID</strong> and <strong>Name</strong> written clearly at the top.</p>
+            <p>After uploading, go to <strong>AI Grading</strong> to grade each submission.</p>
           </div>
 
-          <div className="bg-indigo-50 rounded-lg p-3 text-xs text-indigo-700">
-            💡 After uploading, go to <strong>Submissions</strong> and click <strong>Grade with AI</strong>. The AI will read all 3 images and grade the student's answer against yours.
-          </div>
-
-          <button type="submit" disabled={uploading} className="w-full bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
-            {uploading ? 'Uploading...' : 'Upload All 3 Images'}
+          <button type="submit" disabled={uploading}
+            className="w-full bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2">
+            {uploading ? (
+              <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Processing {studentFiles.length} paper(s)...</>
+            ) : (
+              `Upload ${studentFiles.length > 0 ? studentFiles.length + ' Student Paper(s)' : 'Exam'}`
+            )}
           </button>
         </form>
+
+        {/* Upload results */}
+        {results && (
+          <div className="mt-6 border-t pt-4">
+            <h4 className="font-semibold text-gray-700 mb-3 text-sm">Upload Results</h4>
+            <div className="space-y-2">
+              {results.map((r, i) => (
+                <div key={i} className={`flex items-start gap-3 p-3 rounded-lg text-xs ${
+                  r.status === 'created'   ? 'bg-green-50 text-green-800' :
+                  r.status === 'unmatched' ? 'bg-orange-50 text-orange-800' :
+                  'bg-gray-50 text-gray-600'
+                }`}>
+                  <span className="text-base shrink-0">
+                    {r.status === 'created' ? '✅' : r.status === 'unmatched' ? '⚠️' : '⏭️'}
+                  </span>
+                  <div>
+                    <p className="font-medium">{r.file}</p>
+                    {r.status === 'created' && (
+                      <p>Matched to: <strong>{r.student_name}</strong>
+                        {r.extracted_id && ` (ID: ${r.extracted_id})`}
+                      </p>
+                    )}
+                    {r.status === 'unmatched' && (
+                      <p>
+                        Extracted: ID={r.extracted_id || '?'}, Name={r.extracted_name || '?'} — {r.message}
+                      </p>
+                    )}
+                    {r.status === 'skipped' && <p>{r.message}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -514,6 +619,12 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <h4 className="font-semibold text-gray-800">{s.student_name}</h4>
+                      {s.student_code && (
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-mono">{s.student_code}</span>
+                      )}
+                      {s.student_department && (
+                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{s.student_department}</span>
+                      )}
                       <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Awaiting grade</span>
                     </div>
                     <p className="text-sm text-gray-500">{s.assignment_title}</p>
@@ -561,8 +672,10 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
             {graded.map((s) => (
               <div key={s.id} className="bg-white rounded-xl shadow border border-gray-100 p-4 flex justify-between items-center flex-wrap gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-medium text-gray-800 text-sm">{s.student_name}</h4>
+                    {s.student_code && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-mono">{s.student_code}</span>}
+                    {s.student_department && <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{s.student_department}</span>}
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Graded</span>
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">{s.assignment_title}</p>
@@ -602,7 +715,7 @@ const TeacherDashboard = () => {
         <Route index element={<Overview submissions={submissions} assignments={assignments} />} />
         <Route path="submissions" element={<SubmissionsSection submissions={submissions} assignments={assignments} fetchAll={fetchAll} />} />
         <Route path="grading" element={<AIGradingSection submissions={submissions} assignments={assignments} fetchAll={fetchAll} />} />
-        <Route path="upload" element={<UploadSection students={students} assignments={assignments} fetchAll={fetchAll} />} />
+        <Route path="upload" element={<UploadSection assignments={assignments} fetchAll={fetchAll} />} />
         <Route path="assignments" element={<AssignmentsSection assignments={assignments} fetchAll={fetchAll} />} />
         <Route path="*" element={<Navigate to="/teacher" />} />
       </Routes>

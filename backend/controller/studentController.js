@@ -48,10 +48,12 @@ const submitAssignment = async (req, res) => {
 const getMySubmissions = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT s.*, a.title as assignment_title, a.description, a.max_marks, u.name as teacher_name
+      `SELECT s.*, COALESCE(a.title, 'General Exam') as assignment_title,
+              a.description, COALESCE(a.max_marks, 100) as max_marks,
+              u.name as teacher_name
        FROM submissions s
-       JOIN assignments a ON s.assignment_id = a.id
-       JOIN users u ON a.teacher_id = u.id
+       LEFT JOIN assignments a ON s.assignment_id = a.id
+       LEFT JOIN users u ON a.teacher_id = u.id
        WHERE s.student_id = $1
        ORDER BY s.created_at DESC`,
       [req.user.id]

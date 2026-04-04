@@ -16,6 +16,20 @@ const Overview = ({ stats, submissions, onViewAnalysis }) => {
     <div>
       <h2 className="text-2xl font-bold text-gray-800 mb-1">Welcome back, {user?.name} 👋</h2>
       <p className="text-gray-400 text-sm mb-6">Here's your academic performance overview</p>
+      {(user?.student_id || user?.department) && (
+        <div className="flex items-center gap-3 mb-6">
+          {user.student_id && (
+            <span className="bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded-lg font-mono">
+              ID: {user.student_id}
+            </span>
+          )}
+          {user.department && (
+            <span className="bg-indigo-100 text-indigo-700 text-xs px-3 py-1.5 rounded-lg font-medium">
+              Dept: {user.department}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[

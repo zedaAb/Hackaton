@@ -2,9 +2,11 @@
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE,
     password VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('student', 'teacher', 'admin')),
+    student_id VARCHAR(50) UNIQUE,        -- university student ID (students only)
+    department VARCHAR(50),               -- IS, IT, CS, Cyber, Software (students only)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
