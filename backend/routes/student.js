@@ -1,14 +1,23 @@
 const router = require('express').Router();
 const { verifyToken, requireRole } = require('../middlewares/auth');
-const { getAvailableAssignments, submitAssignment, getMySubmissions, getStats } = require('../controller/studentController');
+const { studentAnswerPdf } = require('../middlewares/upload');
+const { 
+  getAvailableAssignments, submitAssignment, getMySubmissions, getStats, getMaterials,
+  getWorksheets, submitWorksheet, getMyWorksheetSubmissions
+} = require('../controller/studentController');
 const { getAnalysis } = require('../controller/aiController');
 
 router.use(verifyToken, requireRole('student'));
 
 router.get('/assignments', getAvailableAssignments);
-router.post('/submit', submitAssignment);
+router.post('/submit', studentAnswerPdf, submitAssignment);
 router.get('/submissions', getMySubmissions);
 router.get('/stats', getStats);
 router.get('/analysis/:id', getAnalysis);
+router.get('/materials', getMaterials);
+
+router.get('/worksheets', getWorksheets);
+router.post('/worksheets/submit', submitWorksheet);
+router.get('/worksheets/submissions', getMyWorksheetSubmissions);
 
 module.exports = router;

@@ -26,4 +26,9 @@ const bulkExam = upload.fields([
   { name: 'student_answer_images', maxCount: 50 }, // multiple student papers
 ]);
 
-module.exports = { single, bulkExam };
+const assignmentPdf = upload.single('assignment_pdf');
+const studentAnswerPdf = upload.single('answer_pdf');
+const materialFile = upload.single('material_file');
+const worksheetFile = upload.single('worksheet_file');
+
+module.exports = { single, bulkExam, assignmentPdf, studentAnswerPdf, materialFile, worksheetFile };

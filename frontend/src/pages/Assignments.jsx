@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import Navbar from '../componenets/Navbar';
 import api from '../api/axios';
 
+const FILE_BASE = 'http://localhost:5000/';
+
 const Assignments = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null); // assignment to submit
+  const [selected, setSelected] = useState(null);
   const [answer, setAnswer] = useState('');
+  const [responseMode, setResponseMode] = useState('text');
+  const [pdfFile, setPdfFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -27,17 +31,30 @@ const Assignments = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!answer.trim()) return;
     setSubmitting(true);
     setMessage('');
     try {
-      await api.post('/student/submit', {
-        assignment_id: selected.id,
-        answer_text: answer,
-      });
+      if (responseMode === 'pdf') {
+        if (!pdfFile) {
+          setMessage('Please upload your answer as a PDF');
+          setSubmitting(false);
+          return;
+        }
+        const fd = new FormData();
+        fd.append('assignment_id', String(selected.id));
+        fd.append('answer_pdf', pdfFile);
+        await api.post('/student/submit', fd);
+      } else {
+        await api.post('/student/submit', {
+          assignment_id: selected.id,
+          answer_text: answer,
+        });
+      }
       setMessage('Submitted successfully!');
       setSelected(null);
       setAnswer('');
+      setPdfFile(null);
+      setResponseMode('text');
       fetchAssignments();
     } catch (err) {
       setMessage(err.response?.data?.message || 'Submission failed');
@@ -83,6 +100,9 @@ const Assignments = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-gray-800 text-lg">{a.title}</h3>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${a.assignment_format === 'pdf' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>
+                        {a.assignment_format === 'pdf' ? 'PDF' : 'Text'}
+                      </span>
                       {a.already_submitted && (
                         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
                           ✓ Submitted
@@ -103,7 +123,7 @@ const Assignments = () => {
                       {a.due_date && (
                         <span className={isOverdue(a.due_date) ? 'text-red-500' : ''}>
                           Due: {new Date(a.due_date).toLocaleDateString('en-US', {
-                            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                           })}
                         </span>
                       )}
@@ -111,7 +131,13 @@ const Assignments = () => {
                   </div>
                   {!a.already_submitted && (
                     <button
-                      onClick={() => { setSelected(a); setMessage(''); setAnswer(''); }}
+                      onClick={() => {
+                        setSelected(a);
+                        setMessage('');
+                        setAnswer('');
+                        setPdfFile(null);
+                        setResponseMode('text');
+                      }}
                       className="ml-4 bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700 shrink-0"
                     >
                       Submit Answer
@@ -124,10 +150,9 @@ const Assignments = () => {
         )}
       </div>
 
-      {/* Submit Modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b">
               <div className="flex justify-between items-start">
                 <div>
@@ -135,6 +160,7 @@ const Assignments = () => {
                   <p className="text-sm text-gray-400 mt-0.5">Max marks: {selected.max_marks}</p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setSelected(null)}
                   className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
                 >
@@ -147,25 +173,63 @@ const Assignments = () => {
                   <p>{selected.description}</p>
                 </div>
               )}
+              {selected.assignment_format === 'pdf' && selected.assignment_pdf_url && (
+                <a
+                  href={`${FILE_BASE}${selected.assignment_pdf_url}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex mt-3 text-sm text-indigo-600 font-medium hover:underline"
+                >
+                  📄 Open assignment PDF
+                </a>
+              )}
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your Answer
-                </label>
-                <textarea
-                  rows={10}
-                  placeholder="Write your answer here. Be detailed and clear..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  required
-                />
-                <p className="text-xs text-gray-400 mt-1">{answer.length} characters</p>
+                <p className="text-sm font-medium text-gray-700 mb-2">Your response</p>
+                <div className="flex gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => { setResponseMode('text'); setPdfFile(null); }}
+                    className={`flex-1 text-xs py-2 rounded-lg border ${responseMode === 'text' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600'}`}
+                  >
+                    Type answer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setResponseMode('pdf'); setAnswer(''); }}
+                    className={`flex-1 text-xs py-2 rounded-lg border ${responseMode === 'pdf' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600'}`}
+                  >
+                    Upload PDF
+                  </button>
+                </div>
+                {responseMode === 'text' ? (
+                  <>
+                    <textarea
+                      rows={10}
+                      placeholder="Write your answer here. Be detailed and clear..."
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+                      value={answer}
+                      onChange={(e) => setAnswer(e.target.value)}
+                      required={responseMode === 'text'}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">{answer.length} characters</p>
+                  </>
+                ) : (
+                  <div>
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      className="w-full text-sm text-gray-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700"
+                      onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                    />
+                    {pdfFile && <p className="text-xs text-green-600 mt-2">✓ {pdfFile.name}</p>}
+                  </div>
+                )}
               </div>
 
-              {message && (
+              {message && !message.includes('success') && (
                 <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">{message}</p>
               )}
 
@@ -179,7 +243,7 @@ const Assignments = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || !answer.trim()}
+                  disabled={submitting || (responseMode === 'text' ? !answer.trim() : !pdfFile)}
                   className="flex-1 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {submitting ? 'Submitting...' : 'Submit Assignment'}

@@ -10,20 +10,26 @@ const useTeacherData = () => {
   const [submissions, setSubmissions] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [students, setStudents] = useState([]);
+  const [materials, setMaterials] = useState([]);
+  const [worksheets, setWorksheets] = useState([]);
 
   const fetchAll = async () => {
-    const [subRes, asgRes, stuRes] = await Promise.all([
+    const [subRes, asgRes, stuRes, matRes, wsRes] = await Promise.all([
       api.get('/teacher/submissions'),
       api.get('/teacher/assignments'),
       api.get('/teacher/students'),
+      api.get('/teacher/materials'),
+      api.get('/teacher/worksheets'),
     ]);
     setSubmissions(subRes.data);
     setAssignments(asgRes.data);
     setStudents(stuRes.data);
+    setMaterials(matRes.data);
+    setWorksheets(wsRes.data);
   };
 
   useEffect(() => { fetchAll(); }, []);
-  return { submissions, assignments, students, fetchAll };
+  return { submissions, assignments, students, materials, worksheets, fetchAll };
 };
 
 /* ── Overview ── */
@@ -86,7 +92,8 @@ const SubmissionsSection = ({ submissions, assignments, fetchAll }) => {
 
   const handleGrade = async (s) => {
     const asg = assignmentMap[s.assignment_id];
-    if (!asg?.answer_key) { openAnswerKey(asg); return; }
+    const needsKey = s.submission_type === 'text' || s.submission_type === 'pdf';
+    if (needsKey && !asg?.answer_key) { openAnswerKey(asg); return; }
     setGrading(s.id);
     try {
       const { data } = await api.post(`/teacher/grade/${s.id}`);
@@ -138,8 +145,11 @@ const SubmissionsSection = ({ submissions, assignments, fetchAll }) => {
                   <td className="px-4 py-3 font-medium">{s.student_name}</td>
                   <td className="px-4 py-3">{s.assignment_title}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-1 rounded-full ${s.submission_type === 'text' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                      {s.submission_type === 'text' ? '📝 Text' : '📷 Image'}
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      s.submission_type === 'text' ? 'bg-blue-100 text-blue-700' :
+                      s.submission_type === 'pdf' ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-700'
+                    }`}>
+                      {s.submission_type === 'text' ? '📝 Text' : s.submission_type === 'pdf' ? '📄 PDF' : '📷 Image'}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -406,9 +416,14 @@ const UploadSection = ({ assignments, fetchAll }) => {
   );
 };
 
+const FILE_BASE = 'http://localhost:5000/';
+
 /* ── Assignments ── */
 const AssignmentsSection = ({ assignments, fetchAll }) => {
-  const [form, setForm] = useState({ title: '', description: '', due_date: '', max_marks: 100 });
+  const [mode, setMode] = useState('text'); // 'text' | 'pdf'
+  const [form, setForm] = useState({ title: '', description: '', due_date: '', max_marks: 100, department: '' });
+  const [pdfFile, setPdfFile] = useState(null);
+  const [creating, setCreating] = useState(false);
   const [answerKeyModal, setAnswerKeyModal] = useState(null);
   const [answerKeyText, setAnswerKeyText] = useState('');
   const [savingKey, setSavingKey] = useState(false);
@@ -416,12 +431,35 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!form.department) return setMessage('Please select a department');
+    setCreating(true);
     try {
-      await api.post('/teacher/assignments', form);
+      if (mode === 'pdf') {
+        if (!pdfFile) {
+          setMessage('Please choose a PDF file for the assignment');
+          setCreating(false);
+          return;
+        }
+        const fd = new FormData();
+        fd.append('title', form.title);
+        if (form.description) fd.append('description', form.description);
+        if (form.due_date) fd.append('due_date', form.due_date);
+        fd.append('max_marks', String(form.max_marks || 100));
+        fd.append('department', form.department);
+        fd.append('assignment_pdf', pdfFile);
+        await api.post('/teacher/assignments/pdf', fd);
+      } else {
+        await api.post('/teacher/assignments', form);
+      }
       setMessage('Assignment created');
-      setForm({ title: '', description: '', due_date: '', max_marks: 100 });
+      setForm({ title: '', description: '', due_date: '', max_marks: 100, department: '' });
+      setPdfFile(null);
       fetchAll();
-    } catch { setMessage('Failed to create assignment'); }
+    } catch {
+      setMessage('Failed to create assignment');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const openAnswerKey = (a) => { setAnswerKeyModal(a); setAnswerKeyText(a.answer_key || ''); };
@@ -452,9 +490,65 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
         {/* Create form */}
         <div className="bg-white rounded-xl shadow p-6">
           <h3 className="font-semibold text-gray-700 mb-4">Create New Assignment</h3>
+          <div className="flex gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => setMode('text')}
+              className={`flex-1 text-xs py-2 rounded-lg border ${mode === 'text' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+            >
+              📝 Text assignment
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('pdf')}
+              className={`flex-1 text-xs py-2 rounded-lg border ${mode === 'pdf' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+            >
+              📄 PDF assignment
+            </button>
+          </div>
           <form onSubmit={handleCreate} className="space-y-3">
+            <div>
+              <select
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                value={form.department}
+                onChange={(e) => setForm({ ...form, department: e.target.value })}
+                required
+              >
+                <option value="">— Select Department —</option>
+                {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
             <input type="text" placeholder="Title" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
-            <textarea placeholder="Description / Instructions for students" className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            {mode === 'text' ? (
+              <textarea
+                placeholder="Full assignment text / questions / instructions for students"
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                rows={5}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                required
+              />
+            ) : (
+              <>
+                <textarea
+                  placeholder="Optional short note (shown with the PDF)"
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  rows={2}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                />
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Assignment PDF (required)</label>
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    className="w-full text-sm text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700"
+                    onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                  />
+                  {pdfFile && <p className="text-xs text-green-600 mt-1">✓ {pdfFile.name}</p>}
+                </div>
+              </>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Due Date</label>
@@ -465,7 +559,9 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
                 <input type="number" min="1" max="1000" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.max_marks} onChange={(e) => setForm({ ...form, max_marks: e.target.value })} />
               </div>
             </div>
-            <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm hover:bg-indigo-700">Create Assignment</button>
+            <button type="submit" disabled={creating} className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
+              {creating ? 'Creating…' : 'Create Assignment'}
+            </button>
           </form>
         </div>
 
@@ -478,6 +574,21 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
                 <div className="flex justify-between items-start">
                   <p className="font-medium text-gray-800">{a.title}</p>
                   <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full ml-2 shrink-0">{a.submission_count} submissions</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${a.assignment_format === 'pdf' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>
+                    {a.assignment_format === 'pdf' ? 'PDF' : 'Text'}
+                  </span>
+                  {a.department && (
+                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                      {a.department}
+                    </span>
+                  )}
+                  {a.assignment_format === 'pdf' && a.assignment_pdf_url && (
+                    <a href={`${FILE_BASE}${a.assignment_pdf_url}`} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-600 underline">
+                      View PDF
+                    </a>
+                  )}
                 </div>
                 {a.description && <p className="text-gray-400 text-xs mt-0.5 line-clamp-1">{a.description}</p>}
                 <div className="flex gap-3 mt-1 text-xs text-gray-400">
@@ -535,6 +646,232 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
   );
 };
 
+/* ── Materials ── */
+const MaterialsSection = ({ materials, fetchAll }) => {
+  const [form, setForm] = useState({ title: '', description: '', department: '' });
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    if (!form.department) return setMessage('Please select a department');
+    if (!file) return setMessage('Please upload a PDF file');
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('title', form.title);
+      if (form.description) fd.append('description', form.description);
+      fd.append('department', form.department);
+      fd.append('material_file', file);
+      await api.post('/teacher/materials', fd);
+      setMessage('Material uploaded successfully');
+      setForm({ title: '', description: '', department: '' });
+      setFile(null);
+      fetchAll();
+    } catch {
+      setMessage('Failed to upload material');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-1">Reading Materials</h2>
+      <p className="text-gray-400 text-sm mb-6">Upload PDFs or reading matters for specific departments</p>
+
+      {message && (
+        <div className={`mb-4 px-4 py-2 rounded text-sm flex justify-between ${message.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+          <span>{message}</span>
+          <button onClick={() => setMessage('')}>&times;</button>
+        </div>
+      )}
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow p-6">
+          <h3 className="font-semibold text-gray-700 mb-4">Upload New Material</h3>
+          <form onSubmit={handleUpload} className="space-y-3">
+            <div>
+              <select
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                value={form.department}
+                onChange={(e) => setForm({ ...form, department: e.target.value })}
+                required
+              >
+                <option value="">— Select Department —</option>
+                {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <input type="text" placeholder="Title" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+            <textarea
+              placeholder="Short description (optional)"
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+              rows={2}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Material PDF File (required)</label>
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                className="w-full text-sm text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                required
+              />
+              {file && <p className="text-xs text-green-600 mt-1">✓ {file.name}</p>}
+            </div>
+            <button type="submit" disabled={uploading} className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
+              {uploading ? 'Uploading…' : 'Upload Material'}
+            </button>
+          </form>
+        </div>
+
+        <div className="bg-white rounded-xl shadow p-6">
+          <h3 className="font-semibold text-gray-700 mb-4">My Materials</h3>
+          <ul className="space-y-3 max-h-[500px] overflow-y-auto">
+            {materials?.map((m) => (
+              <li key={m.id} className="border rounded-xl px-4 py-3 text-sm">
+                <div className="flex justify-between items-start">
+                  <p className="font-medium text-gray-800">{m.title}</p>
+                  <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full shrink-0">
+                    {m.department}
+                  </span>
+                </div>
+                {m.description && <p className="text-gray-400 text-xs mt-0.5">{m.description}</p>}
+                <a href={`${FILE_BASE}${m.file_url}`} target="_blank" rel="noreferrer" className="inline-block mt-2 text-xs text-indigo-600 underline">
+                  View Material PDF
+                </a>
+              </li>
+            ))}
+            {(!materials || materials.length === 0) && <p className="text-gray-400 text-sm">No materials uploaded yet</p>}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Worksheets ── */
+const WorksheetsSection = ({ worksheets, fetchAll }) => {
+  const [form, setForm] = useState({ title: '', course: '', department: '', description: '', answer_key: '' });
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      Object.keys(form).forEach(key => fd.append(key, form[key]));
+      if (file) fd.append('worksheet_file', file);
+
+      await api.post('/teacher/worksheets', fd);
+      setMessage('Worksheet created successfully!');
+      setForm({ title: '', course: '', department: '', description: '', answer_key: '' });
+      setFile(null);
+      fetchAll();
+    } catch {
+      setMessage('Failed to create worksheet');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-1">Worksheets (Auto-Graded)</h2>
+      <p className="text-gray-400 text-sm mb-6">Create instant-feedback worksheets for specific courses and departments.</p>
+
+      {message && (
+        <div className={`mb-4 px-4 py-2 rounded text-sm flex justify-between ${message.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+          <span>{message}</span>
+          <button onClick={() => setMessage('')}>&times;</button>
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow p-6">
+          <h3 className="font-semibold text-gray-700 mb-4">Create Worksheet</h3>
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <input type="text" placeholder="Worksheet Title" className="border rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-400" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+              <input type="text" placeholder="Course Name" className="border rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-400" value={form.course} onChange={(e) => setForm({ ...form, course: e.target.value })} required />
+            </div>
+            <select
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              value={form.department}
+              onChange={(e) => setForm({ ...form, department: e.target.value })}
+              required
+            >
+              <option value="">— Select Target Department —</option>
+              {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <textarea
+              placeholder="Worksheet Questions / Description"
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              required
+            />
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Worksheet Document (PDF or Image) (Optional)</label>
+              <input
+                type="file"
+                accept="application/pdf,image/*"
+                className="w-full text-sm text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+              />
+              {file && <p className="text-xs text-green-600 mt-1">✓ {file.name}</p>}
+            </div>
+            <textarea
+              placeholder="Answer Key (Used by AI to instantly evaluate students)"
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+              rows={3}
+              value={form.answer_key}
+              onChange={(e) => setForm({ ...form, answer_key: e.target.value })}
+              required
+            />
+            <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
+              {loading ? 'Publishing Worksheet…' : 'Publish Worksheet'}
+            </button>
+          </form>
+        </div>
+
+        <div className="bg-white rounded-xl shadow p-6">
+          <h3 className="font-semibold text-gray-700 mb-4">My Worksheets</h3>
+          <div className="space-y-3 max-h-[500px] overflow-y-auto">
+            {worksheets?.map((ws) => (
+              <div key={ws.id} className="border rounded-xl p-4 text-sm relative">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h4 className="font-bold text-gray-800">{ws.title}</h4>
+                    <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full mr-2 shrink-0">{ws.course}</span>
+                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full shrink-0">{ws.department}</span>
+                  </div>
+                  <span className="text-xs text-gray-500 font-medium">
+                    {ws.submission_count} submission(s)
+                  </span>
+                </div>
+                <p className="text-gray-500 line-clamp-2 text-xs mb-1">{ws.description}</p>
+                {ws.file_url && (
+                  <a href={`${FILE_BASE}${ws.file_url}`} target="_blank" rel="noreferrer" className="inline-block text-xs text-indigo-600 underline">
+                    View Worksheet File
+                  </a>
+                )}
+              </div>
+            ))}
+            {(!worksheets || worksheets.length === 0) && <p className="text-gray-400 text-sm">No worksheets created yet.</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ── AI Grading ── */
 const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
   const [grading, setGrading] = useState(null);
@@ -546,6 +883,12 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
   const graded = submissions.filter((s) => s.status === 'graded');
 
   const handleGrade = async (s) => {
+    const asg = assignmentMap[s.assignment_id];
+    const needsKey = s.submission_type === 'text' || s.submission_type === 'pdf';
+    if (needsKey && !asg?.answer_key) {
+      setMessage('Set an answer key for this assignment under Assignments first.');
+      return;
+    }
     setGrading(s.id);
     setMessage('');
     try {
@@ -633,12 +976,18 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
                     </p>
                   </div>
 
-                  {/* Image previews */}
-                  <div className="flex gap-3">
-                    <ImagePreview url={s.question_image_url} label="Question" />
-                    <ImagePreview url={s.teacher_answer_image_url} label="Teacher Ans" />
-                    <ImagePreview url={s.image_url} label="Student Ans" />
-                  </div>
+                  {/* Previews: image exams vs assignment submissions */}
+                  {s.submission_type === 'image' && s.question_image_url ? (
+                    <div className="flex gap-3">
+                      <ImagePreview url={s.question_image_url} label="Question" />
+                      <ImagePreview url={s.teacher_answer_image_url} label="Teacher Ans" />
+                      <ImagePreview url={s.image_url} label="Student Ans" />
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-500 text-right">
+                      {s.submission_type === 'pdf' ? '📄 Student submitted PDF' : '📝 Student typed answer'}
+                    </div>
+                  )}
 
                   {/* Grade button */}
                   <div className="flex items-center">
@@ -706,17 +1055,18 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
 
 /* ── Root ── */
 const TeacherDashboard = () => {
-  const { submissions, assignments, students, fetchAll } = useTeacherData();
-  const pendingGrading = submissions.filter((s) => s.status === 'submitted').length;
+  const { submissions, assignments, students, materials, worksheets, fetchAll } = useTeacherData();
 
   return (
-    <DashboardLayout pendingGrading={pendingGrading}>
+    <DashboardLayout pendingGrading={submissions.filter((s) => s.status !== 'graded' && s.status !== 'pending').length}>
       <Routes>
         <Route index element={<Overview submissions={submissions} assignments={assignments} />} />
         <Route path="submissions" element={<SubmissionsSection submissions={submissions} assignments={assignments} fetchAll={fetchAll} />} />
-        <Route path="grading" element={<AIGradingSection submissions={submissions} assignments={assignments} fetchAll={fetchAll} />} />
-        <Route path="upload" element={<UploadSection assignments={assignments} fetchAll={fetchAll} />} />
         <Route path="assignments" element={<AssignmentsSection assignments={assignments} fetchAll={fetchAll} />} />
+        <Route path="upload" element={<UploadSection assignments={assignments} fetchAll={fetchAll} />} />
+        <Route path="grading" element={<AIGradingSection submissions={submissions} assignments={assignments} fetchAll={fetchAll} />} />
+        <Route path="materials" element={<MaterialsSection materials={materials} fetchAll={fetchAll} />} />
+        <Route path="worksheets" element={<WorksheetsSection worksheets={worksheets} fetchAll={fetchAll} />} />
         <Route path="*" element={<Navigate to="/teacher" />} />
       </Routes>
     </DashboardLayout>

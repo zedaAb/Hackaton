@@ -3,14 +3,43 @@ const { extractIdentity } = require('./aiController');
 
 const DEPARTMENTS = ['IS', 'IT', 'CS', 'Cyber', 'Software'];
 
-// Create assignment
+// Create assignment (text-based: full instructions in description)
 const createAssignment = async (req, res) => {
-  const { title, description, due_date, max_marks } = req.body;
+  const { title, description, due_date, max_marks, assignment_format, department } = req.body;
+  if (!title?.trim()) return res.status(400).json({ message: 'Title is required' });
+  if (assignment_format === 'pdf')
+    return res.status(400).json({ message: 'Use POST /teacher/assignments/pdf with a PDF file for PDF assignments' });
+  if (!description?.trim())
+    return res.status(400).json({ message: 'Assignment text or instructions are required' });
+  if (!department || !DEPARTMENTS.includes(department))
+    return res.status(400).json({ message: 'Valid department is required' });
+
   try {
     const result = await pool.query(
-      `INSERT INTO assignments (title, description, teacher_id, due_date, max_marks)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [title, description, req.user.id, due_date || null, max_marks || 100]
+      `INSERT INTO assignments (title, description, teacher_id, due_date, max_marks, assignment_format, assignment_pdf_url, department)
+       VALUES ($1,$2,$3,$4,$5,'text',NULL,$6) RETURNING *`,
+      [title.trim(), description.trim(), req.user.id, due_date || null, max_marks || 100, department]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Create assignment with PDF document (questions / instructions in the PDF)
+const createAssignmentPdf = async (req, res) => {
+  const { title, description, due_date, max_marks, department } = req.body;
+  if (!title?.trim()) return res.status(400).json({ message: 'Title is required' });
+  if (!req.file) return res.status(400).json({ message: 'Assignment PDF file is required' });
+  if (!department || !DEPARTMENTS.includes(department))
+    return res.status(400).json({ message: 'Valid department is required' });
+
+  const assignment_pdf_url = `uploads/${req.file.filename}`;
+  try {
+    const result = await pool.query(
+      `INSERT INTO assignments (title, description, teacher_id, due_date, max_marks, assignment_format, assignment_pdf_url, department)
+       VALUES ($1,$2,$3,$4,$5,'pdf',$6,$7) RETURNING *`,
+      [title.trim(), description?.trim() || null, req.user.id, due_date || null, max_marks || 100, assignment_pdf_url, department]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -52,6 +81,15 @@ const uploadBulkExam = async (req, res) => {
   if (!questionFile)             return res.status(400).json({ message: 'Exam question image is required' });
   if (!teacherFile)              return res.status(400).json({ message: 'Teacher answer image is required' });
   if (studentFiles.length === 0) return res.status(400).json({ message: 'At least one student answer image is required' });
+
+  if (assignment_id) {
+    const owns = await pool.query(
+      'SELECT id FROM assignments WHERE id=$1 AND teacher_id=$2',
+      [assignment_id, req.user.id]
+    );
+    if (owns.rows.length === 0)
+      return res.status(403).json({ message: 'Assignment not found or does not belong to you' });
+  }
 
   const questionUrl = `uploads/${questionFile.filename}`;
   const teacherUrl  = `uploads/${teacherFile.filename}`;
@@ -112,9 +150,9 @@ const uploadBulkExam = async (req, res) => {
     const r = await pool.query(
       `INSERT INTO submissions
          (student_id, assignment_id, image_url, question_image_url, teacher_answer_image_url,
-          submission_type, status, department)
-       VALUES ($1,$2,$3,$4,$5,'image','submitted',$6) RETURNING id`,
-      [dbStudentId, assignment_id || null, studentUrl, questionUrl, teacherUrl, department]
+          submission_type, status, department, owner_teacher_id)
+       VALUES ($1,$2,$3,$4,$5,'image','submitted',$6,$7) RETURNING id`,
+      [dbStudentId, assignment_id || null, studentUrl, questionUrl, teacherUrl, department, req.user.id]
     );
 
     results.push({
@@ -134,7 +172,8 @@ const uploadBulkExam = async (req, res) => {
   });
 };
 
-// Get all image submissions (for AI grading page)
+// Image submissions for this teacher only (assignment-owned or bulk-upload owner).
+// Legacy rows with no assignment and no owner_teacher_id remain visible to all teachers.
 const getTeacherSubmissions = async (req, res) => {
   try {
     const result = await pool.query(
@@ -145,8 +184,21 @@ const getTeacherSubmissions = async (req, res) => {
        FROM submissions s
        JOIN users u ON s.student_id = u.id
        LEFT JOIN assignments a ON s.assignment_id = a.id
-       WHERE s.submission_type = 'image' AND s.question_image_url IS NOT NULL
-       ORDER BY s.department, u.name, s.created_at DESC`
+       WHERE (
+         (
+           s.submission_type = 'image' AND s.question_image_url IS NOT NULL
+           AND (
+             COALESCE(a.teacher_id, s.owner_teacher_id) = $1
+             OR (s.assignment_id IS NULL AND s.owner_teacher_id IS NULL)
+           )
+         )
+         OR (
+           s.submission_type IN ('text', 'pdf') AND s.assignment_id IS NOT NULL
+           AND a.teacher_id = $1
+         )
+       )
+       ORDER BY s.department NULLS LAST, u.name, s.created_at DESC`,
+      [req.user.id]
     );
     res.json(result.rows);
   } catch (err) {
@@ -198,7 +250,82 @@ const setAnswerKey = async (req, res) => {
   }
 };
 
+// Upload reading material (PDF)
+const uploadMaterial = async (req, res) => {
+  const { title, description, department } = req.body;
+  if (!title?.trim()) return res.status(400).json({ message: 'Title is required' });
+  if (!req.file) return res.status(400).json({ message: 'Material file is required' });
+  if (!department || !DEPARTMENTS.includes(department))
+    return res.status(400).json({ message: 'Valid department is required' });
+
+  const file_url = `uploads/${req.file.filename}`;
+  try {
+    const result = await pool.query(
+      `INSERT INTO materials (title, description, file_url, department, teacher_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [title.trim(), description?.trim() || null, file_url, department, req.user.id]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Get teacher's materials
+const getTeacherMaterials = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM materials WHERE teacher_id=$1 ORDER BY created_at DESC`,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Create a worksheet
+const createWorksheet = async (req, res) => {
+  const { title, course, department, description, answer_key } = req.body;
+  if (!title?.trim() || !course?.trim() || !description?.trim() || !answer_key?.trim())
+    return res.status(400).json({ message: 'All fields are required' });
+  if (!department || !DEPARTMENTS.includes(department))
+    return res.status(400).json({ message: 'Valid department is required' });
+
+  const file_url = req.file ? `uploads/${req.file.filename}` : null;
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO worksheets (title, course, department, description, file_url, answer_key, teacher_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [title.trim(), course.trim(), department, description.trim(), file_url, answer_key.trim(), req.user.id]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Get teacher's worksheets
+const getTeacherWorksheets = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT w.*, COUNT(s.id) as submission_count
+       FROM worksheets w
+       LEFT JOIN worksheet_submissions s ON s.worksheet_id = w.id
+       WHERE w.teacher_id=$1
+       GROUP BY w.id
+       ORDER BY w.created_at DESC`,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
-  createAssignment, getAssignments, uploadBulkExam,
+  createAssignment, createAssignmentPdf, getAssignments, uploadBulkExam,
   getTeacherSubmissions, getStudents, getStudentsByDept, setAnswerKey,
+  uploadMaterial, getTeacherMaterials, createWorksheet, getTeacherWorksheets
 };

@@ -5,6 +5,8 @@ const studentLinks = [
   { to: '/student', label: 'Overview', icon: '🏠' },
   { to: '/student/assignments', label: 'Assignments', icon: '📋' },
   { to: '/student/grades', label: 'My Grades', icon: '📊' },
+  { to: '/student/materials', label: 'Materials', icon: '📚' },
+  { to: '/student/worksheets', label: 'Worksheets', icon: '📄' },
 ];
 
 const teacherLinks = [
@@ -13,6 +15,8 @@ const teacherLinks = [
   { to: '/teacher/grading', label: 'AI Grading', icon: '🤖' },
   { to: '/teacher/upload', label: 'Upload Exam', icon: '📷' },
   { to: '/teacher/assignments', label: 'Assignments', icon: '📋' },
+  { to: '/teacher/materials', label: 'Materials', icon: '📚' },
+  { to: '/teacher/worksheets', label: 'Worksheets', icon: '📄' },
 ];
 
 const adminLinks = [
