@@ -571,10 +571,10 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
       <div className="flex flex-col items-center gap-1">
         <span className="text-xs text-gray-400">{label}</span>
         <img
-          src={`http://localhost:5000/${url}`}
+          src={`http://localhost:5001/${url}`}
           alt={label}
           className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:scale-105 transition-transform"
-          onClick={() => window.open(`http://localhost:5000/${url}`, '_blank')}
+          onClick={() => window.open(`http://localhost:5001/${url}`, '_blank')}
         />
       </div>
     );

@@ -80,7 +80,7 @@ const Navbar = ({ pendingGrading = 0 }) => {
       <div className="px-3 py-4 border-t border-indigo-700">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-indigo-200 hover:bg-indigo-700 hover:text-white transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white bg-red-600 hover:bg-red-700 transition-colors"
         >
           <span>🚪</span> Logout
         </button>
