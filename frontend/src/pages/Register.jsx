@@ -53,7 +53,7 @@ const Register = () => {
           <input type="text" placeholder="Full Name" className={inputCls}
             value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
 
-          <input type="text" placeholder="Student ID (e.g. STU-2024-001)" className={inputCls}
+          <input type="text" placeholder="Student ID" className={inputCls}
             value={form.student_id} onChange={(e) => setForm({ ...form, student_id: e.target.value })} required />
           
           <select className={inputCls} value={form.department}
