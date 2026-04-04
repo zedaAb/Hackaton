@@ -7,6 +7,9 @@ const DEPARTMENTS = ['IS', 'IT', 'CS', 'Cyber', 'Software'];
 const register = async (req, res) => {
   const { name, email, password, role, student_id, department } = req.body;
   try {
+    if (role !== 'student') {
+      return res.status(403).json({ message: 'Only students can register publicly. Teachers must be registered by an Admin.' });
+    }
     // Students require student_id and department
     if (role === 'student') {
       if (!student_id?.trim()) return res.status(400).json({ message: 'Student ID is required' });

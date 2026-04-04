@@ -24,6 +24,7 @@ const adminLinks = [
   { to: '/admin', label: 'Overview', icon: '🏠' },
   { to: '/admin/users', label: 'Users', icon: '👥' },
   { to: '/admin/submissions', label: 'Submissions', icon: '📝' },
+  { to: '/admin/register-teacher', label: 'Register Teacher', icon: '👨‍🏫' },
 ];
 
 const Navbar = ({ pendingGrading = 0 }) => {

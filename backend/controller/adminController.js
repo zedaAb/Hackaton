@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const bcrypt = require('bcryptjs');
 
 // Get all users
 const getAllUsers = async (req, res) => {
@@ -55,4 +56,27 @@ const getAllSubmissions = async (req, res) => {
   }
 };
 
-module.exports = { getAllUsers, deleteUser, getStats, getAllSubmissions };
+// Register a new teacher securely
+const registerTeacher = async (req, res) => {
+  const { name, email, password } = req.body;
+  try {
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Name, email, and password are required' });
+    }
+    const hashed = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      `INSERT INTO users (name, email, password, role)
+       VALUES ($1,$2,$3,'teacher')
+       RETURNING id, name, email, role, created_at`,
+      [name, email, hashed]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (err.code === '23505' && err.constraint?.includes('email')) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { getAllUsers, deleteUser, getStats, getAllSubmissions, registerTeacher };

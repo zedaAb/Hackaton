@@ -33,10 +33,11 @@ Your grading rules:
 Return ONLY a valid JSON object — no markdown, no extra text:
 {
   "extracted_text": "full text extracted from student answer",
+  "marks_awarded": 85,
+  "max_marks": 100,
   "overall_grade": 85,
-  "grade_letter": "B",
   "performance_level": "Good",
-  "summary": "Brief overall summary of student performance",
+  "summary": "You got 85 out of 100 (85%). Brief overall summary of student performance.",
   "questions": [
     {
       "question_number": 1,
@@ -75,10 +76,11 @@ Your grading rules:
 Return ONLY a valid JSON object — no markdown, no extra text (same schema as for image-based grading):
 {
   "extracted_text": "full text taken from the student's answer (summarize if PDF)",
+  "marks_awarded": 85,
+  "max_marks": 100,
   "overall_grade": 85,
-  "grade_letter": "B",
   "performance_level": "Good",
-  "summary": "Brief overall summary of student performance",
+  "summary": "You got 85 out of 100 (85%). Brief overall summary of student performance.",
   "questions": [
     {
       "question_number": 1,
@@ -118,7 +120,7 @@ const imageToInlineData = (filePath) => {
   return { inlineData: { data, mimeType } };
 };
 
-// AI Helper: Safe Generate to catch 429 Quota errors cleanly
+// AI Helper: Safe Generate
 const generateSafely = async (contentParts, isChat = false, chatHistory = []) => {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
@@ -130,24 +132,11 @@ const generateSafely = async (contentParts, isChat = false, chatHistory = []) =>
     return await model.generateContent(contentParts);
   } catch (err) {
     if (err.status === 429 || err?.message?.includes('429') || err?.message?.includes('Quota exceeded')) {
-      throw new Error('QUOTA_EXCEEDED');
+      throw new Error('Google AI Free Tier Rate Limit reached (Max requests). Please wait and try again.');
     }
     throw err;
   }
 };
-
-const getMockGrading = (isImage) => ({
-  extracted_text: isImage ? "[Simulated] API Quota Hit. Student submission processed via Mock Engine." : undefined,
-  overall_grade: 85,
-  grade_letter: "B",
-  performance_level: "Good",
-  summary: "[Demonstration Mode] AI API Quota was reached. The student demonstrated a solid working knowledge of the topics. Awarded Auto-B.",
-  questions: [],
-  strengths: ["Clean submission format", "Identified primary subjects correctly"],
-  weaknesses: ["Network API constraints prevented deeper granular review"],
-  recommendations: [{ area: "System", suggestion: "Upgrade Gemini limits." }],
-  study_resources: []
-});
 
 // Extract student identity from a paper image using AI
 const extractIdentity = async (imagePath) => {
@@ -203,6 +192,7 @@ const gradeSubmission = async (req, res) => {
       }
 
       contentParts = [
+        `IMPORTANT GRADING RULE: This assignment is graded out of a maximum of ${submission.max_marks || 100} marks. Explicitly calculate the marks awarded out of this total, calculate the percentage for 'overall_grade', and formulate your 'summary' starting with e.g. "You got X out of Y (Z%)." DO NOT SET A LETTER GRADE.`,
         GRADING_PROMPT,
         '\n\n=== IMAGE 1: EXAM QUESTION ===',
         imageToInlineData(questionPath),
@@ -221,7 +211,12 @@ const gradeSubmission = async (req, res) => {
         return res.status(400).json({ message: 'No student answer (text or PDF) found' });
 
       const fmt = submission.assignment_format || 'text';
-      const parts = [ASSIGNMENT_GRADING_PROMPT, '\n\n=== TEACHER ANSWER KEY ===\n', submission.answer_key];
+      const parts = [
+        `IMPORTANT GRADING RULE: This assignment is graded out of a maximum of ${submission.max_marks || 100} marks. Explicitly calculate the marks awarded out of this total, calculate the percentage for 'overall_grade', and formulate your 'summary' starting with e.g. "You got X out of Y (Z%)." DO NOT SET A LETTER GRADE.`,
+        ASSIGNMENT_GRADING_PROMPT, 
+        '\n\n=== TEACHER ANSWER KEY ===\n', 
+        submission.answer_key
+      ];
 
       if (fmt === 'pdf' && submission.assignment_pdf_url) {
         const ap = path.join(__dirname, '..', submission.assignment_pdf_url);
@@ -269,16 +264,6 @@ const gradeSubmission = async (req, res) => {
 
     res.json({ success: true, analysis });
   } catch (err) {
-    if (err.message === 'QUOTA_EXCEEDED') {
-      const mockAnalysis = getMockGrading(submission.submission_type === 'image');
-      await pool.query(
-        `UPDATE submissions
-         SET grade=$1, ai_feedback=$2, extracted_text=$3, ai_analysis=$4, status='graded'
-         WHERE id=$5`,
-        [mockAnalysis.overall_grade, mockAnalysis.summary, mockAnalysis.extracted_text || submission.answer_text || '', JSON.stringify(mockAnalysis), id]
-      );
-      return res.json({ success: true, analysis: mockAnalysis, is_mock: true });
-    }
     console.error('AI grading error:', err.message);
     res.status(500).json({ message: err.message });
   }
@@ -309,6 +294,7 @@ const getAnalysis = async (req, res) => {
 const autoGradeText = async (description, fileUrl, answerKey, studentAnswer) => {
   try {
     const contentParts = [
+      `IMPORTANT GRADING RULE: Calculate marks_awarded and max_marks explicitly. The overall_grade MUST be the percentage (marks_awarded/max_marks * 100). The summary MUST start with "You got X out of Y (Z%)." DO NOT include any letter grade.`,
       ASSIGNMENT_GRADING_PROMPT,
       '\n\n=== TEACHER ANSWER KEY ===\n', answerKey,
       '\n\n=== ASSIGNMENT (TEXT) ===\n', description,
@@ -329,7 +315,6 @@ const autoGradeText = async (description, fileUrl, answerKey, studentAnswer) => 
     if (!jsonMatch) throw new Error('AI did not return valid JSON');
     return JSON.parse(jsonMatch[0]);
   } catch (err) {
-    if (err.message === 'QUOTA_EXCEEDED') return getMockGrading(!!fileUrl);
     console.error('autoGradeText error:', err.message);
     throw err;
   }
@@ -368,9 +353,6 @@ Keep your responses conversational and concisely formatted in Markdown.`;
     const aiResult = await generateSafely(finalParts, true, formattedHistory);
     return aiResult.response.text();
   } catch (err) {
-    if (err.message === 'QUOTA_EXCEEDED') {
-      return "*(System Notice)* The AI is currently experiencing high load constraints due to rate limits. Please try again in 60 seconds, or hit 'Evaluate Me' to receive your final automated test grade on your current progress!";
-    }
     console.error('chatWithMaterial error:', err.message);
     throw err;
   }
@@ -409,14 +391,6 @@ Return ONLY a valid JSON object matching exactly this schema:
     if (!jsonMatch) throw new Error('AI did not return valid JSON');
     return JSON.parse(jsonMatch[0]);
   } catch (err) {
-    if (err.message === 'QUOTA_EXCEEDED') {
-      return {
-        overall_grade: 85,
-        summary: "[Demonstration] AI Rate Limits constrained deep evaluation. Based on available metrics, you achieved an auto-evaluated B grade.",
-        strengths: ["Participated in conversation"],
-        weaknesses: ["Unable to verify full comprehension depth safely under current API quotas"]
-      };
-    }
     console.error('evaluateQASession error:', err.message);
     throw err;
   }

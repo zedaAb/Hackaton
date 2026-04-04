@@ -526,7 +526,9 @@ const WorksheetsSection = () => {
                    <h4 className="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2">
                      🤖 Instant AI Feedback 
                      <span className={`text-sm px-2 py-0.5 rounded-full ${feedback.analysis.overall_grade >= 80 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {feedback.analysis.overall_grade} / 100
+                        {feedback.analysis.marks_awarded != null && feedback.analysis.max_marks
+                          ? feedback.analysis.marks_awarded + ' / ' + feedback.analysis.max_marks + ' (' + Math.round((feedback.analysis.marks_awarded / feedback.analysis.max_marks) * 100) + '%)'
+                          : feedback.analysis.overall_grade + '%'}
                      </span>
                    </h4>
                    <p className="text-sm text-gray-600 mb-4">{feedback.analysis.summary}</p>
