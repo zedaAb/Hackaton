@@ -225,6 +225,7 @@ const uploadBulkExam = async (req, res) => {
         message: err.message
       });
     }
+  }
 
   const created   = results.filter((r) => r.status === 'created').length;
   const unmatched = results.filter((r) => r.status === 'unmatched').length;
