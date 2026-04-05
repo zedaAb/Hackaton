@@ -40,11 +40,14 @@ const Navbar = ({ pendingGrading = 0 }) => {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <aside className="w-56 min-h-screen bg-indigo-800 flex flex-col fixed left-0 top-0 z-30">
+    <aside className="w-56 min-h-screen bg-indigo-800 flex flex-col fixed left-0 top-0 z-30 print:hidden">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-indigo-700">
-        <h1 className="text-white text-lg font-bold tracking-wide">AI Grader</h1>
-        <div className="mt-2 flex items-center gap-2">
+        <div className="flex items-center gap-2.5 mb-3">
+          <img src="/logo.png" alt="AI Grader Logo" className="w-11 h-11 rounded-lg object-contain bg-white/10 p-1" />
+          <h1 className="text-white text-base font-bold tracking-wide leading-tight">AI Grader</h1>
+        </div>
+        <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold uppercase">
             {user?.name?.[0]}
           </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import DashboardLayout from '../componenets/DashboardLayout';
 import AnalysisModal from '../componenets/AnalysisModal';
@@ -68,6 +68,7 @@ const Overview = ({ submissions, assignments }) => {
 /* ── Submissions ── */
 const SubmissionsSection = ({ submissions, assignments, fetchAll }) => {
   const [grading, setGrading] = useState(null);
+  const [viewMode, setViewMode] = useState('list');
   const [analysisModal, setAnalysisModal] = useState(null);
   const [answerKeyModal, setAnswerKeyModal] = useState(null);
   const [answerKeyText, setAnswerKeyText] = useState('');
@@ -75,6 +76,22 @@ const SubmissionsSection = ({ submissions, assignments, fetchAll }) => {
   const [message, setMessage] = useState('');
 
   const assignmentMap = Object.fromEntries(assignments.map((a) => [a.id, a]));
+  
+  // Data processing for Student "Excel" View
+  const uniqueAssignments = Array.from(new Set(submissions.map(s => s.assignment_title))).filter(Boolean).sort();
+  const studentMap = {};
+  submissions.forEach(s => {
+    if (!studentMap[s.student_id]) {
+      studentMap[s.student_id] = { 
+        name: s.student_name, 
+        code: s.student_code || 'N/A', 
+        dept: s.student_department || 'N/A', 
+        grades: {} 
+      };
+    }
+    studentMap[s.student_id].grades[s.assignment_title] = s.grade !== null ? Number(s.grade) : s.status;
+  });
+  const sortedStudents = Object.values(studentMap).sort((a,b) => a.name.localeCompare(b.name));
 
   const openAnswerKey = (asg) => { setAnswerKeyModal(asg); setAnswerKeyText(asg.answer_key || ''); };
 
@@ -112,10 +129,60 @@ const SubmissionsSection = ({ submissions, assignments, fetchAll }) => {
     } catch { setMessage('Could not load analysis'); }
   };
 
+  const handleExportCSV = () => {
+    let csv = `Student Name,Student ID,Department,${uniqueAssignments.join(',')},Average Grade\n`;
+    sortedStudents.forEach(stu => {
+      let total = 0, count = 0;
+      const gradesStr = uniqueAssignments.map(title => {
+        const g = stu.grades[title];
+        if (typeof g === 'number') { total += g; count++; return `${Math.round(g)}%`;}
+        return g || 'N/A';
+      }).join(',');
+      const avg = count > 0 ? `${(total/count).toFixed(1)}%` : 'N/A';
+      csv += `${stu.name},${stu.code},${stu.dept},${gradesStr},${avg}\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Gradebook_Export.csv`;
+    a.click();
+  };
+
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-1">Submissions</h2>
-      <p className="text-gray-400 text-sm mb-6">Grade student submissions with AI</p>
+    <div className="print:m-0 print:p-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 print:hidden">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-1">Submissions & Grades</h2>
+          <p className="text-gray-400 text-sm">Grade student submissions or view the overall gradebook</p>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-4 sm:mt-0">
+          <button 
+            onClick={() => setViewMode('list')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium border ${viewMode === 'list' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+          >
+            Chronological View
+          </button>
+          <button 
+            onClick={() => setViewMode('student')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium border ${viewMode === 'student' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+          >
+             Student Gradebook (Excel View)
+          </button>
+          
+          {viewMode === 'student' && (
+            <>
+              <button onClick={() => window.print()} className="px-4 py-2 rounded-lg text-sm font-medium border bg-white text-gray-600 border-gray-200 hover:bg-gray-50 flex items-center gap-1">
+                🖨️ Print
+              </button>
+              <button onClick={handleExportCSV} className="px-4 py-2 rounded-lg text-sm font-medium border bg-green-600 text-white border-green-600 hover:bg-green-700 flex items-center gap-1">
+                📊 Export CSV
+              </button>
+            </>
+          )}
+        </div>
+      </div>
 
       {message && (
         <div className={`mb-4 px-4 py-2 rounded text-sm flex justify-between ${message.includes('failed') || message.includes('Please') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
@@ -124,7 +191,8 @@ const SubmissionsSection = ({ submissions, assignments, fetchAll }) => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow overflow-x-auto">
+      {viewMode === 'list' ? (
+        <div className="bg-white rounded-xl shadow overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600">
             <tr>
@@ -137,16 +205,29 @@ const SubmissionsSection = ({ submissions, assignments, fetchAll }) => {
             </tr>
           </thead>
           <tbody>
-            {submissions.map((s) => {
-              const asg = assignmentMap[s.assignment_id];
-              const hasKey = !!asg?.answer_key;
-              return (
-                <tr key={s.id} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{s.student_name}</td>
-                  <td className="px-4 py-3">{s.assignment_title}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      s.submission_type === 'text' ? 'bg-blue-100 text-blue-700' :
+            {Object.values(
+              submissions.reduce((acc, s) => {
+                if (!acc[s.student_id]) acc[s.student_id] = [];
+                acc[s.student_id].push(s);
+                return acc;
+              }, {})
+            ).sort((a, b) => a[0].student_name.localeCompare(b[0].student_name))
+             .map((group) => (
+              <React.Fragment key={`group-${group[0].student_id}`}>
+                {group.map((s, index) => {
+                  const asg = assignmentMap[s.assignment_id];
+                  const hasKey = !!asg?.answer_key;
+                  return (
+                    <tr key={s.id} className="border-t hover:bg-gray-50">
+                      {index === 0 && (
+                        <td className="px-4 py-3 font-semibold align-top border-r bg-white" rowSpan={group.length}>
+                          {s.student_name}
+                        </td>
+                      )}
+                      <td className="px-4 py-3">{s.assignment_title}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          s.submission_type === 'text' ? 'bg-blue-100 text-blue-700' :
                       s.submission_type === 'pdf' ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-700'
                     }`}>
                       {s.submission_type === 'text' ? '📝 Text' : s.submission_type === 'pdf' ? '📄 PDF' : '📷 Image'}
@@ -179,12 +260,58 @@ const SubmissionsSection = ({ submissions, assignments, fetchAll }) => {
                 </tr>
               );
             })}
+              </React.Fragment>
+            ))}
             {submissions.length === 0 && (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No submissions yet</td></tr>
             )}
           </tbody>
         </table>
       </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow overflow-x-auto">
+          <table className="w-full text-sm whitespace-nowrap">
+            <thead className="bg-gray-50 text-gray-600 border-b">
+              <tr>
+                <th className="px-4 py-3 text-left">Student Name</th>
+                <th className="px-4 py-3 text-left">Student ID</th>
+                <th className="px-4 py-3 text-left">Department</th>
+                {uniqueAssignments.map(title => (
+                  <th key={title} className="px-4 py-3 text-left">{title}</th>
+                ))}
+                <th className="px-4 py-3 text-left font-bold text-indigo-700">Average</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedStudents.map((stu, i) => {
+                 let total = 0, count = 0;
+                 return (
+                   <tr key={stu.code + '-' + i} className="border-t hover:bg-gray-50">
+                     <td className="px-4 py-3 font-medium">{stu.name}</td>
+                     <td className="px-4 py-3 text-gray-500">{stu.code}</td>
+                     <td className="px-4 py-3">{stu.dept}</td>
+                     {uniqueAssignments.map(title => {
+                       const g = stu.grades[title];
+                       if (typeof g === 'number') { total += g; count++; }
+                       return (
+                         <td key={title} className="px-4 py-3">
+                           {g !== undefined ? (typeof g === 'number' ? <span className="font-semibold">{Math.round(g)}%</span> : <span className="text-yellow-600 text-xs px-2 py-1 bg-yellow-50 rounded-full">{g}</span>) : <span className="text-gray-300">—</span>}
+                         </td>
+                       );
+                     })}
+                     <td className="px-4 py-3 font-bold text-indigo-700">
+                       {count > 0 ? `${(total/count).toFixed(1)}%` : <span className="text-gray-300">—</span>}
+                     </td>
+                   </tr>
+                 )
+              })}
+              {sortedStudents.length === 0 && (
+                <tr><td colSpan={uniqueAssignments.length + 4} className="px-4 py-8 text-center text-gray-400">No student data available</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {analysisModal && <AnalysisModal submission={analysisModal} onClose={() => setAnalysisModal(null)} />}
 
@@ -425,7 +552,7 @@ const FILE_BASE = 'http://localhost:5000/';
 
 /* ── Assignments ── */
 const AssignmentsSection = ({ assignments, fetchAll }) => {
-  const [mode, setMode] = useState('text'); // 'text' | 'pdf'
+  const [mode, setMode] = useState('text');
   const [form, setForm] = useState({ title: '', description: '', due_date: '', max_marks: 100, department: '' });
   const [pdfFile, setPdfFile] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -433,6 +560,13 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
   const [answerKeyText, setAnswerKeyText] = useState('');
   const [savingKey, setSavingKey] = useState(false);
   const [message, setMessage] = useState('');
+  const [expandedAsgId, setExpandedAsgId] = useState(null);
+  const [asgSubmissions, setAsgSubmissions] = useState([]);
+  const [loadingSubs, setLoadingSubs] = useState(false);
+  const [gradingId, setGradingId] = useState(null);
+  const [gradeMessage, setGradeMessage] = useState('');
+  const [answerViewModal, setAnswerViewModal] = useState(null);
+  const [analysisModal, setAnalysisModal] = useState(null);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -440,11 +574,7 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
     setCreating(true);
     try {
       if (mode === 'pdf') {
-        if (!pdfFile) {
-          setMessage('Please choose a PDF file for the assignment');
-          setCreating(false);
-          return;
-        }
+        if (!pdfFile) { setMessage('Please choose a PDF file for the assignment'); setCreating(false); return; }
         const fd = new FormData();
         fd.append('title', form.title);
         if (form.description) fd.append('description', form.description);
@@ -476,7 +606,45 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
       setMessage('Answer key saved');
       setAnswerKeyModal(null);
       fetchAll();
+      // Refresh submissions if panel is open for this assignment
+      if (expandedAsgId === answerKeyModal.id) loadSubmissions(answerKeyModal.id);
     } catch { setMessage('Failed to save'); } finally { setSavingKey(false); }
+  };
+
+  const loadSubmissions = async (asgId) => {
+    setLoadingSubs(true);
+    try {
+      const { data } = await api.get(`/teacher/assignments/${asgId}/submissions`);
+      setAsgSubmissions(data);
+    } catch { setGradeMessage('Failed to load submissions'); }
+    finally { setLoadingSubs(false); }
+  };
+
+  const toggleExpand = (asgId) => {
+    if (expandedAsgId === asgId) { setExpandedAsgId(null); setAsgSubmissions([]); }
+    else { setExpandedAsgId(asgId); loadSubmissions(asgId); setGradeMessage(''); }
+  };
+
+  const handleGrade = async (sub, asg) => {
+    if (!asg.answer_key) { setGradeMessage('Set an answer key first before grading.'); return; }
+    setGradingId(sub.id);
+    setGradeMessage('');
+    try {
+      const { data } = await api.post(`/teacher/grade/${sub.id}`);
+      setGradeMessage(`✓ ${sub.student_name} graded — ${data.analysis?.overall_grade ?? '?'}%`);
+      if (data.analysis) setAnalysisModal({ ai_analysis: data.analysis, assignment_title: asg.title });
+      loadSubmissions(expandedAsgId);
+      fetchAll();
+    } catch (err) {
+      setGradeMessage('Grading failed: ' + (err.response?.data?.message || err.message));
+    } finally { setGradingId(null); }
+  };
+
+  const handleViewAnalysis = async (sub) => {
+    try {
+      const { data } = await api.get(`/teacher/analysis/${sub.id}`);
+      setAnalysisModal(data);
+    } catch { setGradeMessage('Could not load analysis'); }
   };
 
   return (
@@ -573,42 +741,131 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
         {/* List */}
         <div className="bg-white rounded-xl shadow p-6">
           <h3 className="font-semibold text-gray-700 mb-4">My Assignments</h3>
-          <ul className="space-y-3 max-h-[500px] overflow-y-auto">
+          <ul className="space-y-3 max-h-[600px] overflow-y-auto">
             {assignments.map((a) => (
-              <li key={a.id} className="border rounded-xl px-4 py-3 text-sm">
-                <div className="flex justify-between items-start">
-                  <p className="font-medium text-gray-800">{a.title}</p>
-                  <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full ml-2 shrink-0">{a.submission_count} submissions</span>
-                </div>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${a.assignment_format === 'pdf' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>
-                    {a.assignment_format === 'pdf' ? 'PDF' : 'Text'}
-                  </span>
-                  {a.department && (
-                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                      {a.department}
+              <li key={a.id} className="border rounded-xl text-sm overflow-hidden">
+                {/* Assignment header */}
+                <div className="px-4 py-3">
+                  <div className="flex justify-between items-start">
+                    <p className="font-medium text-gray-800">{a.title}</p>
+                    <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full ml-2 shrink-0">{a.submission_count} submissions</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${a.assignment_format === 'pdf' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>
+                      {a.assignment_format === 'pdf' ? 'PDF' : 'Text'}
                     </span>
-                  )}
-                  {a.assignment_format === 'pdf' && a.assignment_pdf_url && (
-                    <a href={`${FILE_BASE}${a.assignment_pdf_url}`} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-600 underline">
-                      View PDF
-                    </a>
-                  )}
+                    {a.department && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{a.department}</span>}
+                    {a.assignment_format === 'pdf' && a.assignment_pdf_url && (
+                      <a href={`${FILE_BASE}${a.assignment_pdf_url}`} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-600 underline">View PDF</a>
+                    )}
+                  </div>
+                  {a.description && <p className="text-gray-400 text-xs mt-0.5 line-clamp-1">{a.description}</p>}
+                  <div className="flex gap-3 mt-1 text-xs text-gray-400">
+                    <span>Max: {a.max_marks}</span>
+                    {a.due_date && <span>Due: {new Date(a.due_date).toLocaleDateString()}</span>}
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    {a.answer_key
+                      ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">&#10003; Answer key set</span>
+                      : <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">&#9888; No answer key</span>
+                    }
+                    <button onClick={() => openAnswerKey(a)} className="text-xs text-indigo-600 underline hover:text-indigo-800">
+                      {a.answer_key ? 'Edit' : 'Set answer key'}
+                    </button>
+                    {Number(a.submission_count) > 0 && (
+                      <button
+                        onClick={() => toggleExpand(a.id)}
+                        className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                          expandedAsgId === a.id
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                        }`}
+                      >
+                        {expandedAsgId === a.id ? '&#9650; Hide' : `&#128203; Grade Submissions (${a.submission_count})`}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {a.description && <p className="text-gray-400 text-xs mt-0.5 line-clamp-1">{a.description}</p>}
-                <div className="flex gap-3 mt-1 text-xs text-gray-400">
-                  <span>Max: {a.max_marks}</span>
-                  {a.due_date && <span>Due: {new Date(a.due_date).toLocaleDateString()}</span>}
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  {a.answer_key
-                    ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">✓ Answer key set</span>
-                    : <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">⚠ No answer key</span>
-                  }
-                  <button onClick={() => openAnswerKey(a)} className="text-xs text-indigo-600 underline hover:text-indigo-800">
-                    {a.answer_key ? 'Edit' : 'Set answer key'}
-                  </button>
-                </div>
+
+                {/* Expanded submissions panel */}
+                {expandedAsgId === a.id && (
+                  <div className="border-t bg-gray-50 px-4 py-3">
+                    {gradeMessage && (
+                      <div className={`mb-3 px-3 py-2 rounded text-xs flex justify-between ${
+                        gradeMessage.includes('failed') || gradeMessage.includes('Set') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+                      }`}>
+                        <span>{gradeMessage}</span>
+                        <button onClick={() => setGradeMessage('')}>&times;</button>
+                      </div>
+                    )}
+                    {loadingSubs ? (
+                      <p className="text-xs text-gray-400 text-center py-4">Loading submissions...</p>
+                    ) : asgSubmissions.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-4">No submissions yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {asgSubmissions.map((sub) => (
+                          <div key={sub.id} className="bg-white border border-gray-100 rounded-lg px-3 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-gray-800 text-xs">{sub.student_name}</span>
+                                {sub.student_code && <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono">{sub.student_code}</span>}
+                                {sub.student_department && <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full">{sub.student_department}</span>}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                  sub.status === 'graded' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                }`}>{sub.status}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                {sub.status === 'graded' && sub.grade != null && (
+                                  <span className={`text-sm font-bold ${
+                                    sub.grade >= 80 ? 'text-green-600' : sub.grade >= 60 ? 'text-yellow-600' : 'text-red-500'
+                                  }`}>{sub.grade}%</span>
+                                )}
+                                {sub.answer_text && (
+                                  <button
+                                    onClick={() => setAnswerViewModal({ text: sub.answer_text, title: `${sub.student_name}'s Answer` })}
+                                    className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100 hover:bg-blue-100"
+                                  >
+                                    &#128196; View Answer
+                                  </button>
+                                )}
+                                {sub.answer_pdf_url && (
+                                  <a
+                                    href={`${FILE_BASE}${sub.answer_pdf_url}`}
+                                    target="_blank" rel="noreferrer"
+                                    className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-100 hover:bg-amber-100"
+                                  >
+                                    &#128196; View PDF
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {sub.status !== 'graded' ? (
+                                <button
+                                  onClick={() => handleGrade(sub, a)}
+                                  disabled={gradingId === sub.id}
+                                  className="bg-indigo-600 text-white text-[10px] px-3 py-1.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  {gradingId === sub.id ? (
+                                    <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Grading...</>
+                                  ) : '&#129302; Grade with AI'}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleViewAnalysis(sub)}
+                                  className="bg-green-600 text-white text-[10px] px-3 py-1.5 rounded-lg hover:bg-green-700"
+                                >
+                                  View Analysis
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
             {assignments.length === 0 && <p className="text-gray-400 text-sm">No assignments yet</p>}
@@ -622,13 +879,13 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
             <div className="p-6 border-b flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-bold text-gray-800">Answer Key / Marking Scheme</h3>
-                <p className="text-sm text-gray-400">{answerKeyModal.title} · Max {answerKeyModal.max_marks} marks</p>
+                <p className="text-sm text-gray-400">{answerKeyModal.title} &middot; Max {answerKeyModal.max_marks} marks</p>
               </div>
               <button onClick={() => setAnswerKeyModal(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
             </div>
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
-                💡 List each question with expected answer, key points, and marks. AI will grade against this.
+                &#128161; List each question with expected answer, key points, and marks. AI will grade against this.
               </div>
               <textarea
                 rows={12}
@@ -647,6 +904,22 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
           </div>
         </div>
       )}
+
+      {answerViewModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setAnswerViewModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b flex justify-between items-center">
+              <h3 className="font-bold text-gray-800">{answerViewModal.title}</h3>
+              <button onClick={() => setAnswerViewModal(null)} className="text-gray-400 text-2xl hover:text-gray-600">&times;</button>
+            </div>
+            <div className="p-5">
+              <pre className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-xl p-4 max-h-[60vh] overflow-y-auto border border-gray-100">{answerViewModal.text}</pre>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {analysisModal && <AnalysisModal submission={analysisModal} onClose={() => setAnalysisModal(null)} />}
     </div>
   );
 };
@@ -926,10 +1199,25 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
   const [grading, setGrading] = useState(null);
   const [analysisModal, setAnalysisModal] = useState(null);
   const [message, setMessage] = useState('');
+  const [answerModal, setAnswerModal] = useState(null); // { text, title }
+  const [answerKeyModal, setAnswerKeyModal] = useState(null);
+  const [answerKeyText, setAnswerKeyText] = useState('');
+  const [savingKey, setSavingKey] = useState(false);
 
   const assignmentMap = Object.fromEntries(assignments.map((a) => [a.id, a]));
   const pending = submissions.filter((s) => s.status === 'submitted');
   const graded = submissions.filter((s) => s.status === 'graded');
+
+  const openSetKey = (asg) => { setAnswerKeyModal(asg); setAnswerKeyText(asg?.answer_key || ''); };
+  const handleSaveKey = async () => {
+    setSavingKey(true);
+    try {
+      await api.put(`/teacher/assignments/${answerKeyModal.id}/answer-key`, { answer_key: answerKeyText });
+      setMessage('Answer key saved! You can now grade this assignment.');
+      setAnswerKeyModal(null);
+      fetchAll();
+    } catch { setMessage('Failed to save answer key'); } finally { setSavingKey(false); }
+  };
 
   const handleGrade = async (s) => {
     const asg = assignmentMap[s.assignment_id];
@@ -957,18 +1245,18 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
     } catch { setMessage('Could not load analysis'); }
   };
 
+  const [modalImage, setModalImage] = useState(null);
+
   const ImagePreview = ({ url, label }) => {
     if (!url) return null;
+    const fullUrl = `http://localhost:5000/${url.replace(/^\/+/, '')}`;
     return (
-      <div className="flex flex-col items-center gap-1">
-        <span className="text-xs text-gray-400">{label}</span>
-        <img
-          src={`http://localhost:5001/${url}`}
-          alt={label}
-          className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:scale-105 transition-transform"
-          onClick={() => window.open(`http://localhost:5001/${url}`, '_blank')}
-        />
-      </div>
+      <button
+        onClick={() => setModalImage(fullUrl)}
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-lg hover:bg-indigo-100 transition-colors border border-indigo-100 shadow-sm"
+      >
+        <span>📷</span> {label}
+      </button>
     );
   };
 
@@ -1004,7 +1292,11 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
           </div>
         ) : (
           <div className="space-y-4">
-            {pending.map((s) => (
+            {pending.map((s) => {
+              const asg = assignmentMap[s.assignment_id];
+              const hasAnswerKey = !!asg?.answer_key;
+              const canGrade = s.submission_type === 'image' || hasAnswerKey;
+              return (
               <div key={s.id} className="bg-white rounded-xl shadow border border-gray-100 p-5">
                 <div className="flex justify-between items-start flex-wrap gap-4">
                   {/* Info */}
@@ -1025,42 +1317,119 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
                     </p>
                   </div>
 
-                  {/* Previews: image exams vs assignment submissions */}
+                  {/* Previews */}
                   {s.submission_type === 'image' && s.question_image_url ? (
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 flex-wrap">
                       <ImagePreview url={s.question_image_url} label="Question" />
                       <ImagePreview url={s.teacher_answer_image_url} label="Teacher Ans" />
                       <ImagePreview url={s.image_url} label="Student Ans" />
                     </div>
                   ) : (
-                    <div className="text-xs text-gray-500 text-right">
-                      {s.submission_type === 'pdf' ? '📄 Student submitted PDF' : '📝 Student typed answer'}
+                    <div className="flex flex-col gap-2 mt-2">
+                      {hasAnswerKey ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full border border-green-200">
+                          &#10003; Answer key set
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => openSetKey(asg)}
+                          className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 px-2 py-1 rounded-lg border border-orange-200 hover:bg-orange-100"
+                        >
+                          &#9888; Set Answer Key first
+                        </button>
+                      )}
+                      {s.submission_type === 'pdf' && s.answer_pdf_url ? (
+                        <a
+                          href={`http://localhost:5000/${s.answer_pdf_url}`}
+                          target="_blank" rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-lg hover:bg-amber-100 border border-amber-100"
+                        >
+                          📄 View Student PDF
+                        </a>
+                      ) : s.answer_text ? (
+                        <button
+                          onClick={() => setAnswerModal({ text: s.answer_text, title: `${s.student_name}'s Answer` })}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg hover:bg-blue-100 border border-blue-100"
+                        >
+                          📝 View Student Answer
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">No student answer yet</span>
+                      )}
                     </div>
                   )}
 
                   {/* Grade button */}
                   <div className="flex items-center">
-                    <button
-                      onClick={() => handleGrade(s)}
-                      disabled={grading === s.id}
-                      className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
-                    >
-                      {grading === s.id ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          Grading...
-                        </>
-                      ) : (
-                        <> 🤖 Grade with AI </>
-                      )}
-                    </button>
+                    {canGrade && (
+                      <button
+                        onClick={() => handleGrade(s)}
+                        disabled={grading === s.id}
+                        className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {grading === s.id ? (
+                          <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Grading...</>
+                        ) : (
+                          <> 🤖 Grade with AI </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Student Answer text modal */}
+      {answerModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setAnswerModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b flex justify-between items-center">
+              <h3 className="font-bold text-gray-800">{answerModal.title}</h3>
+              <button onClick={() => setAnswerModal(null)} className="text-gray-400 text-2xl hover:text-gray-600">&times;</button>
+            </div>
+            <div className="p-5">
+              <pre className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-xl p-4 max-h-[60vh] overflow-y-auto border border-gray-100">{answerModal.text}</pre>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Set Answer Key modal */}
+      {answerKeyModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setAnswerKeyModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-gray-800">Set Answer Key</h3>
+                <p className="text-sm text-gray-400">{answerKeyModal?.title}</p>
+              </div>
+              <button onClick={() => setAnswerKeyModal(null)} className="text-gray-400 text-2xl hover:text-gray-600">&times;</button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+                💡 List each question with the expected answer and marks. AI will grade the student's response against this.
+              </div>
+              <textarea
+                rows={8}
+                placeholder={`Q1 (10 marks): What is photosynthesis?\nExpected: Process plants use to convert sunlight, water and CO2 into glucose.\nKey points: light energy, chlorophyll, glucose, oxygen.\n\nQ2 (5 marks): ...`}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+                value={answerKeyText}
+                onChange={e => setAnswerKeyText(e.target.value)}
+              />
+              <div className="flex gap-3">
+                <button onClick={() => setAnswerKeyModal(null)} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm hover:bg-gray-50">Cancel</button>
+                <button onClick={handleSaveKey} disabled={savingKey || !answerKeyText.trim()} className="flex-1 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+                  {savingKey ? 'Saving...' : 'Save & Grade'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Already graded */}
       {graded.length > 0 && (
@@ -1098,6 +1467,24 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
       )}
 
       {analysisModal && <AnalysisModal submission={analysisModal} onClose={() => setAnalysisModal(null)} />}
+
+      {modalImage && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setModalImage(null)}>
+          <div className="relative max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setModalImage(null)}
+              className="absolute -top-10 right-0 text-white text-3xl opacity-80 hover:opacity-100 transition-opacity"
+            >
+              &times;
+            </button>
+            <img 
+              src={modalImage} 
+              alt="Preview" 
+              className="w-full h-full object-contain rounded-lg shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

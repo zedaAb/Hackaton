@@ -15,10 +15,10 @@ const Home = () => {
       {/* Navbar */}
       <nav className="relative z-10 flex justify-between items-center px-8 py-6 w-full max-w-7xl mx-auto animate-fade-in">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-blue-400 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-            <span className="text-white font-bold text-xl">AI</span>
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 ${isDarkMode ? 'bg-white/10' : 'bg-indigo-50 border border-indigo-100'}`}>
+            <img src="/logo.png" alt="AI Grader" className="w-11 h-11 object-contain" />
           </div>
-          <h1 className={`text-2xl font-bold tracking-tight transition-colors ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Grader</h1>
+          <h1 className={`text-2xl font-bold tracking-tight transition-colors ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>AI Grader</h1>
         </div>
         
         <div className="flex items-center gap-4">
@@ -94,12 +94,12 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-8 w-full">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
             <div className="md:col-span-2">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                  <span className="text-white font-bold text-xl">AI</span>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 ${isDarkMode ? 'bg-white/10' : 'bg-indigo-50 border border-indigo-100'}`}>
+                    <img src="/logo.png" alt="AI Grader" className="w-10 h-10 object-contain" />
+                  </div>
+                  <span className={`text-2xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>AI Grader</span>
                 </div>
-                <span className={`text-2xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Grader</span>
-              </div>
               <p className={`text-sm leading-relaxed max-w-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                 Empowering academic institutions with bleeding-edge artificial intelligence to eliminate grading overhead and significantly improve student feedback cycles.
               </p>

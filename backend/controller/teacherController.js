@@ -66,6 +66,31 @@ const getAssignments = async (req, res) => {
   }
 };
 
+// Get submissions for a specific assignment (teacher only)
+const getAssignmentSubmissions = async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Verify teacher owns this assignment
+    const asgCheck = await pool.query(
+      'SELECT id FROM assignments WHERE id=$1 AND teacher_id=$2',
+      [id, req.user.id]
+    );
+    if (!asgCheck.rows[0]) return res.status(403).json({ message: 'Access denied' });
+
+    const result = await pool.query(
+      `SELECT s.*, u.name as student_name, u.student_id as student_code, u.department as student_department
+       FROM submissions s
+       JOIN users u ON s.student_id = u.id
+       WHERE s.assignment_id=$1
+       ORDER BY s.created_at DESC`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // Upload bulk exam: 1 question + 1 teacher answer + many student answer images
 // AI extracts student ID/name from each paper and matches to DB
 const uploadBulkExam = async (req, res) => {
@@ -373,7 +398,7 @@ const getTeacherWorksheets = async (req, res) => {
 };
 
 module.exports = {
-  createAssignment, createAssignmentPdf, getAssignments, uploadBulkExam,
+  createAssignment, createAssignmentPdf, getAssignments, getAssignmentSubmissions, uploadBulkExam,
   getTeacherSubmissions, getStudents, getStudentsByDept, setAnswerKey,
   uploadMaterial, getTeacherMaterials, createWorksheet, getTeacherWorksheets
 };

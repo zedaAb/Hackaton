@@ -30,8 +30,13 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-100 to-blue-50 flex items-center justify-center">
       <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
-        <h2 className="text-3xl font-bold text-indigo-700 mb-2 text-center">AI Grader</h2>
-        <p className="text-center text-gray-500 mb-6 text-sm">Sign in to your account</p>
+        <div className="flex flex-col items-center mb-6">
+          <div className="w-20 h-20 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center shadow-inner mb-4">
+            <img src="/logo.png" alt="AI Grader Logo" className="w-16 h-16 object-contain" />
+          </div>
+          <h2 className="text-3xl font-bold text-indigo-700">AI Grader</h2>
+          <p className="text-gray-500 text-sm mt-1">Sign in to your account</p>
+        </div>
 
         {error && <p className="bg-red-50 text-red-600 text-sm p-3 rounded mb-4">{error}</p>}
 

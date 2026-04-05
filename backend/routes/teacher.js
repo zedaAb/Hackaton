@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { verifyToken, requireRole } = require('../middlewares/auth');
 const { bulkExam, assignmentPdf } = require('../middlewares/upload');
 const {
-  createAssignment, createAssignmentPdf, getAssignments, uploadBulkExam,
+  createAssignment, createAssignmentPdf, getAssignments, getAssignmentSubmissions, uploadBulkExam,
   getTeacherSubmissions, getStudents, getStudentsByDept, setAnswerKey,
   uploadMaterial, getTeacherMaterials, createWorksheet, getTeacherWorksheets,
 } = require('../controller/teacherController');
@@ -16,6 +16,7 @@ router.post('/assignments', createAssignment);
 router.post('/assignments/pdf', assignmentPdf, createAssignmentPdf);
 router.get('/assignments', getAssignments);
 router.put('/assignments/:id/answer-key', setAnswerKey);
+router.get('/assignments/:id/submissions', getAssignmentSubmissions);
 router.post('/upload-exam', bulkExam, uploadBulkExam);
 router.get('/submissions', getTeacherSubmissions);
 router.post('/grade/:id', gradeSubmission);
