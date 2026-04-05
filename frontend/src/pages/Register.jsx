@@ -39,7 +39,7 @@ const Register = () => {
     }
   };
 
-  const inputCls = "w-full bg-white/5 border-2 border-white/20 rounded-2xl px-6 py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all";
+  const inputCls = "w-full bg-slate-800/85 border border-slate-600/80 rounded-2xl px-6 py-3.5 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-indigo-400/70 shadow-inner transition-all";
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-slate-900 transition-colors duration-700 py-12">

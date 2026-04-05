@@ -61,7 +61,7 @@ const Login = () => {
                 <input
                   type="text"
                   placeholder="Student ID or Email"
-                  className="w-full bg-white/5 border-2 border-white/20 rounded-2xl px-6 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
+                  className="w-full bg-slate-800/85 border border-slate-600/80 rounded-2xl px-6 py-4 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-indigo-400/70 shadow-inner transition-all"
                   value={form.identifier}
                   onChange={(e) => setForm({ ...form, identifier: e.target.value })}
                   required
@@ -75,7 +75,7 @@ const Login = () => {
             <input
               type="password"
               placeholder="Password"
-              className="w-full bg-white/5 border-2 border-white/20 rounded-2xl px-6 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
+              className="w-full bg-slate-800/85 border border-slate-600/80 rounded-2xl px-6 py-4 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-indigo-400/70 shadow-inner transition-all"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               required
