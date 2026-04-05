@@ -94,6 +94,11 @@ const getAssignmentSubmissions = async (req, res) => {
 // Upload bulk exam: 1 question + 1 teacher answer + many student answer images
 // AI extracts student ID/name from each paper and matches to DB
 const uploadBulkExam = async (req, res) => {
+  console.log('=== UPLOAD BULK EXAM STARTED ===');
+  console.log('User:', req.user);
+  console.log('Body:', req.body);
+  console.log('Files:', req.files ? Object.keys(req.files) : 'no files');
+  
   const { department, exam_type } = req.body;
   const files = req.files || {};
 

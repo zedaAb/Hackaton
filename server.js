@@ -51,10 +51,28 @@ app.get('/test-db', async (req, res) => {
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 app.post('/test-upload', upload.single('file'), (req, res) => {
+  console.log('Test upload received:', req.file);
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
   res.json({ message: 'File uploaded successfully', filename: req.file.filename });
+});
+
+// Test bulk upload (similar to exam upload)
+const { bulkExam } = require('./middlewares/upload');
+app.post('/test-bulk-upload', bulkExam, (req, res) => {
+  console.log('Bulk upload files:', req.files);
+  console.log('Bulk upload body:', req.body);
+  res.json({ 
+    message: 'Bulk upload received', 
+    files: Object.keys(req.files || {}),
+    body: req.body 
+  });
+});
+
+// Test authentication
+app.get('/test-auth', require('./middlewares/auth').verifyToken, (req, res) => {
+  res.json({ message: 'Auth works', user: req.user });
 });
 
 app.use('/api/auth', require('./routes/auth'));
