@@ -97,6 +97,8 @@ const uploadBulkExam = async (req, res) => {
   const { department, exam_type } = req.body;
   const files = req.files || {};
 
+  console.log('Upload attempt:', { department, exam_type, filesCount: Object.keys(files).length });
+
   if (!department || !DEPARTMENTS.includes(department))
     return res.status(400).json({ message: 'Valid department is required' });
   if (!exam_type || !['Midterm Exam', 'Final Exam'].includes(exam_type))
@@ -105,6 +107,12 @@ const uploadBulkExam = async (req, res) => {
   const questionFile = files['question_image']?.[0];
   const teacherFile  = files['teacher_answer_image']?.[0];
   const studentFiles = files['student_answer_images'] || [];
+
+  console.log('Files received:', {
+    question: !!questionFile,
+    teacher: !!teacherFile,
+    students: studentFiles.length
+  });
 
   if (!questionFile)             return res.status(400).json({ message: 'Exam question image is required' });
   if (!teacherFile)              return res.status(400).json({ message: 'Teacher answer image is required' });
@@ -115,96 +123,103 @@ const uploadBulkExam = async (req, res) => {
   const results     = [];
 
   for (const studentFile of studentFiles) {
-    const studentUrl  = `uploads/${studentFile.filename}`;
-    const studentPath = studentFile.path;
-
-    // AI extracts student ID and name from the paper
-    let identity = { student_id: null, student_name: null };
     try {
-      identity = await extractIdentity(studentPath);
-    } catch (err) {
-      console.error('AI extraction failed for', studentFile.originalname, ':', err.message);
-      // Continue without AI extraction
-    }
-    const filenameNoExt = path.parse(studentFile.originalname).name;
+      const studentUrl  = `uploads/${studentFile.filename}`;
+      const studentPath = studentFile.path;
 
-    const cleanId = (identity.student_id && identity.student_id !== '?') ? identity.student_id : null;
-    const cleanName = (identity.student_name && identity.student_name !== '?') ? identity.student_name : null;
-
-    let dbStudentId = null;
-    let matchedName = cleanName || filenameNoExt || 'Unknown';
-
-    // Match by student_id
-    if (cleanId) {
-      const match = await pool.query(
-        `SELECT id, name FROM users
-         WHERE role='student' AND department=$1
-           AND (student_id ILIKE $2 OR student_id ILIKE $3)`,
-        [department, cleanId, `%${cleanId}%`]
-      );
-      if (match.rows[0]) { dbStudentId = match.rows[0].id; matchedName = match.rows[0].name; }
-    }
-
-    // Fallback 1: match by name from OCR
-    if (!dbStudentId && cleanName) {
-      const nameMatch = await pool.query(
-        `SELECT id, name FROM users
-         WHERE role='student' AND department=$1 AND name ILIKE $2`,
-        [department, `%${cleanName}%`]
-      );
-      if (nameMatch.rows[0]) { dbStudentId = nameMatch.rows[0].id; matchedName = nameMatch.rows[0].name; }
-    }
-
-    // Fallback 2: match by filename
-    if (!dbStudentId) {
-      const fnMatch = await pool.query(
-        `SELECT id, name FROM users
-         WHERE role='student' AND department=$1 
-         AND (name ILIKE $2 OR student_id ILIKE $2)`,
-        [department, `%${filenameNoExt}%`]
-      );
-      if (fnMatch.rows.length >= 1) { 
-         // If exact 1 match, or multiple matches (take first)
-         dbStudentId = fnMatch.rows[0].id; 
-         matchedName = fnMatch.rows[0].name;
+      // AI extracts student ID and name from the paper
+      let identity = { student_id: null, student_name: null };
+      try {
+        identity = await extractIdentity(studentPath);
+      } catch (err) {
+        console.error('AI extraction failed for', studentFile.originalname, ':', err.message);
+        // Continue without AI extraction
       }
-    }
+      const filenameNoExt = path.parse(studentFile.originalname).name;
 
-    if (!dbStudentId) {
-      results.push({
-        file: studentFile.originalname, status: 'unmatched',
-        extracted_id: identity.student_id, extracted_name: identity.student_name,
-        message: 'Could not match to a registered student in this department',
-      });
-      continue;
-    }
+      const cleanId = (identity.student_id && identity.student_id !== '?') ? identity.student_id : null;
+      const cleanName = (identity.student_name && identity.student_name !== '?') ? identity.student_name : null;
 
-    // Skip duplicate
-    if (exam_type) {
-      const exists = await pool.query(
-        'SELECT id FROM submissions WHERE student_id=$1 AND exam_type=$2 AND submission_type=\'image\'',
-        [dbStudentId, exam_type]
-      );
-      if (exists.rows.length > 0) {
-        results.push({ file: studentFile.originalname, status: 'skipped', student_name: matchedName, message: `Already submitted ${exam_type}` });
+      let dbStudentId = null;
+      let matchedName = cleanName || filenameNoExt || 'Unknown';
+
+      // Match by student_id
+      if (cleanId) {
+        const match = await pool.query(
+          `SELECT id, name FROM users
+           WHERE role='student' AND department=$1
+             AND (student_id ILIKE $2 OR student_id ILIKE $3)`,
+          [department, cleanId, `%${cleanId}%`]
+        );
+        if (match.rows[0]) { dbStudentId = match.rows[0].id; matchedName = match.rows[0].name; }
+      }
+
+      // Fallback 1: match by name from OCR
+      if (!dbStudentId && cleanName) {
+        const nameMatch = await pool.query(
+          `SELECT id, name FROM users
+           WHERE role='student' AND department=$1 AND name ILIKE $2`,
+          [department, `%${cleanName}%`]
+        );
+        if (nameMatch.rows[0]) { dbStudentId = nameMatch.rows[0].id; matchedName = nameMatch.rows[0].name; }
+      }
+
+      // Fallback 2: match by filename
+      if (!dbStudentId) {
+        const fnMatch = await pool.query(
+          `SELECT id, name FROM users
+           WHERE role='student' AND department=$1 
+           AND (name ILIKE $2 OR student_id ILIKE $2)`,
+          [department, `%${filenameNoExt}%`]
+        );
+        if (fnMatch.rows.length >= 1) { 
+           // If exact 1 match, or multiple matches (take first)
+           dbStudentId = fnMatch.rows[0].id; 
+           matchedName = fnMatch.rows[0].name;
+        }
+      }
+
+      if (!dbStudentId) {
+        results.push({
+          file: studentFile.originalname, status: 'unmatched',
+          extracted_id: identity.student_id, extracted_name: identity.student_name,
+          message: 'Could not match to a registered student in this department',
+        });
         continue;
       }
+
+      // Skip duplicate
+      if (exam_type) {
+        const exists = await pool.query(
+          'SELECT id FROM submissions WHERE student_id=$1 AND exam_type=$2 AND submission_type=\'image\'',
+          [dbStudentId, exam_type]
+        );
+        if (exists.rows.length > 0) {
+          results.push({ file: studentFile.originalname, status: 'skipped', student_name: matchedName, message: `Already submitted ${exam_type}` });
+          continue;
+        }
+      }
+
+      const r = await pool.query(
+        `INSERT INTO submissions
+           (student_id, exam_type, image_url, question_image_url, teacher_answer_image_url,
+            submission_type, status, department, owner_teacher_id)
+         VALUES ($1,$2,$3,$4,$5,'image','submitted',$6,$7) RETURNING id`,
+        [dbStudentId, exam_type, studentUrl, questionUrl, teacherUrl, department, req.user.id]
+      );
+
+      results.push({
+        file: studentFile.originalname, status: 'created',
+        submission_id: r.rows[0].id, student_name: matchedName,
+        extracted_id: identity.student_id, extracted_name: identity.student_name,
+      });
+    } catch (err) {
+      console.error('Error processing student file:', studentFile.originalname, err.message);
+      results.push({
+        file: studentFile.originalname, status: 'error',
+        message: err.message
+      });
     }
-
-    const r = await pool.query(
-      `INSERT INTO submissions
-         (student_id, exam_type, image_url, question_image_url, teacher_answer_image_url,
-          submission_type, status, department, owner_teacher_id)
-       VALUES ($1,$2,$3,$4,$5,'image','submitted',$6,$7) RETURNING id`,
-      [dbStudentId, exam_type, studentUrl, questionUrl, teacherUrl, department, req.user.id]
-    );
-
-    results.push({
-      file: studentFile.originalname, status: 'created',
-      submission_id: r.rows[0].id, student_name: matchedName,
-      extracted_id: identity.student_id, extracted_name: identity.student_name,
-    });
-  }
 
   const created   = results.filter((r) => r.status === 'created').length;
   const unmatched = results.filter((r) => r.status === 'unmatched').length;
