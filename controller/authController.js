@@ -40,6 +40,8 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   const { identifier, password } = req.body; // identifier = student_id OR email
+  console.log('Login attempt:', { identifier, password: password ? '[HIDDEN]' : null });
+  
   if (!identifier || !password)
     return res.status(400).json({ message: 'ID/Email and password are required' });
   try {
@@ -48,9 +50,23 @@ const login = async (req, res) => {
       'SELECT * FROM users WHERE student_id=$1 OR email=$1',
       [identifier]
     );
+    console.log('Query result:', result.rows.length, 'users found');
+    
     const user = result.rows[0];
-    if (!user || !(await bcrypt.compare(password, user.password)))
+    if (!user) {
+      console.log('No user found with identifier:', identifier);
       return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    
+    console.log('Found user:', { id: user.id, name: user.name, email: user.email, role: user.role });
+    
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    console.log('Password match:', passwordMatch);
+    
+    if (!passwordMatch) {
+      console.log('Password does not match for user:', user.email || user.student_id);
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
     const token = jwt.sign(
       { id: user.id, role: user.role, name: user.name, department: user.department, student_id: user.student_id },
