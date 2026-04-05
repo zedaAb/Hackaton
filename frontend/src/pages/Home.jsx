@@ -5,23 +5,52 @@ const Home = () => {
   const navigate = useNavigate();
   const [isDarkMode, setIsDarkMode] = useState(true);
 
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   return (
     <div className={`min-h-screen flex flex-col relative overflow-hidden transition-colors duration-700 ${isDarkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
       
+      {/* Navbar overlay for mobile */}
+      {isMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex flex-col items-center justify-center bg-slate-900/95 backdrop-blur-xl animate-fade-in">
+          <button 
+            onClick={() => setIsMenuOpen(false)}
+            className="absolute top-8 right-8 text-white text-4xl font-light hover:rotate-90 transition-transform duration-300"
+          >
+            &times;
+          </button>
+          <div className="flex flex-col items-center gap-8 animate-fade-in-up">
+            <button
+              onClick={() => { setIsDarkMode(!isDarkMode); setIsMenuOpen(false); }}
+              className="px-8 py-3 rounded-full bg-white/5 border border-white/10 text-white flex items-center gap-3 text-lg"
+            >
+              {isDarkMode ? '☀️ Regular Mode' : '🌙 Dark Mode'}
+            </button>
+            <button
+              onClick={() => navigate('/login')}
+              className="px-12 py-4 rounded-full bg-indigo-600 text-white font-bold text-xl shadow-xl shadow-indigo-500/20"
+            >
+              Sign In
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Dynamic Background Elements */}
       <div className={`absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full mix-blend-multiply filter blur-[128px] animate-pulse ${isDarkMode ? 'bg-indigo-600 opacity-50' : 'bg-indigo-300 opacity-60'}`}></div>
       <div className={`absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full mix-blend-multiply filter blur-[128px] ${isDarkMode ? 'bg-blue-600 opacity-40' : 'bg-blue-300 opacity-50'}`}></div>
 
       {/* Navbar */}
-      <nav className="relative z-10 flex justify-between items-center px-8 py-6 w-full max-w-7xl mx-auto animate-fade-in">
+      <nav className="relative z-10 flex justify-between items-center px-6 md:px-8 py-6 w-full max-w-7xl mx-auto animate-fade-in">
         <div className="flex items-center gap-3">
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 ${isDarkMode ? 'bg-white/10' : 'bg-indigo-50 border border-indigo-100'}`}>
-            <img src="/logo.png" alt="AI Grader" className="w-11 h-11 object-contain" />
+          <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 ${isDarkMode ? 'bg-white/10' : 'bg-indigo-50 border border-indigo-100'}`}>
+            <img src="/logo.png" alt="AI Grader" className="w-9 h-9 md:w-11 md:h-11 object-contain" />
           </div>
-          <h1 className={`text-2xl font-bold tracking-tight transition-colors ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>AI Grader</h1>
+          <h1 className={`text-xl md:text-2xl font-bold tracking-tight transition-colors ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>AI Grader</h1>
         </div>
         
-        <div className="flex items-center gap-4">
+        {/* Desktop Menu */}
+        <div className="hidden md:flex items-center gap-4">
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)}
             className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-transform hover:scale-110 ${isDarkMode ? 'bg-white/10 text-yellow-300 hover:bg-white/20' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
@@ -37,6 +66,16 @@ const Home = () => {
             Sign In
           </button>
         </div>
+
+        {/* Mobile Menu Toggle */}
+        <button 
+          onClick={() => setIsMenuOpen(true)}
+          className={`md:hidden p-2 rounded-xl border transition-colors ${isDarkMode ? 'border-white/10 text-white hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
+          </svg>
+        </button>
       </nav>
 
       {/* Hero Section */}
