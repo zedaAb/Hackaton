@@ -119,7 +119,13 @@ const uploadBulkExam = async (req, res) => {
     const studentPath = studentFile.path;
 
     // AI extracts student ID and name from the paper
-    const identity = await extractIdentity(studentPath);
+    let identity = { student_id: null, student_name: null };
+    try {
+      identity = await extractIdentity(studentPath);
+    } catch (err) {
+      console.error('AI extraction failed for', studentFile.originalname, ':', err.message);
+      // Continue without AI extraction
+    }
     const filenameNoExt = path.parse(studentFile.originalname).name;
 
     const cleanId = (identity.student_id && identity.student_id !== '?') ? identity.student_id : null;

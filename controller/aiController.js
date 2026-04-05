@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 
 /** Teacher may access if they own the assignment / bulk upload, or legacy row (no owner). */
 const teacherMayAccessSubmission = (row, teacherId) => {
@@ -127,6 +127,10 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // AI Helper: Safe Generate with Exponential Backoff
 const generateSafely = async (contentParts, isChat = false, chatHistory = []) => {
+  if (!genAI) {
+    throw new Error('Gemini API key not configured');
+  }
+  
   let attempts = 0;
   const maxAttempts = 3;
 
