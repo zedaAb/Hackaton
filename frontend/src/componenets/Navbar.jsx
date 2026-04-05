@@ -44,78 +44,93 @@ const Navbar = ({ pendingGrading = 0, isOpen = false, onClose = () => {} }) => {
       {/* Backdrop for mobile */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden animate-fade-in"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-40 md:hidden animate-fade-in"
           onClick={onClose}
         />
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-indigo-800 flex flex-col transform transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        print:hidden
+        fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 flex flex-col transform transition-all duration-500 ease-[cubic-bezier(0.33,1,0.68,1)]
+        ${isOpen ? 'translate-x-0 shadow-[0_0_80px_rgba(0,0,0,0.5)]' : '-translate-x-full md:translate-x-0 md:shadow-[20px_0_50px_rgba(0,0,0,0.2)]'}
+        print:hidden border-r border-white/5
       `}>
+        
+        {/* Decorative Background Elements */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
         {/* Logo & Mobile Close */}
-        <div className="px-5 py-5 border-b border-indigo-700 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2.5 mb-2">
-              <img src="/logo.png" alt="AI Grader Logo" className="w-11 h-11 rounded-lg object-contain bg-white/10 p-1" />
-              <h1 className="text-white text-base font-bold tracking-wide leading-tight">AI Grader</h1>
+        <div className="relative px-6 py-10 flex flex-col gap-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center glass-card border-none bg-white/10 shadow-[0_0_20px_rgba(79,70,229,0.1)] group-hover:shadow-indigo-500/20 transition-all ring-1 ring-white/10">
+                <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain rounded-full" />
+              </div>
+              <h1 className="text-white text-xl font-black tracking-tighter leading-none">AI <span className="gradient-text">Grader</span></h1>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold uppercase shrink-0">
+            <button onClick={onClose} className="md:hidden text-slate-400 hover:text-white transition-colors">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* User Profile Hook */}
+          <div className="glass-card p-4 rounded-3xl border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-all cursor-default group">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white text-sm font-black uppercase shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-transform">
                 {user?.name?.[0]}
               </div>
               <div className="min-w-0">
-                <p className="text-white text-xs font-medium leading-tight truncate w-32">{user?.name}</p>
-                <p className="text-indigo-300 text-xs capitalize">{user?.role}</p>
+                <p className="text-white text-xs font-black truncate">{user?.name}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold opacity-80">{user?.role}</p>
+                </div>
               </div>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="md:hidden p-2 text-indigo-300 hover:text-white"
-          >
-            <span className="text-2xl font-light">&times;</span>
-          </button>
         </div>
 
-      {/* Nav links */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {links.map((link) => {
-          const active = location.pathname === link.to;
-          const showBadge = link.to.includes('grading') && pendingGrading > 0;
-          return (
-            <Link
-              key={link.to}
-              to={link.to}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-white text-indigo-700'
-                  : 'text-indigo-200 hover:bg-indigo-700 hover:text-white'
-              }`}
-            >
-              <span>{link.icon}</span>
-              <span className="flex-1">{link.label}</span>
-              {showBadge && (
-                <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                  {pendingGrading}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
+        {/* Navigation Links */}
+        <nav className="relative flex-1 px-4 py-2 space-y-2 overflow-y-auto custom-scrollbar">
+          {links.map((link) => {
+            const active = location.pathname === link.to;
+            const showBadge = link.to.includes('grading') && pendingGrading > 0;
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                onClick={() => { if(window.innerWidth < 768) onClose(); }}
+                className={`group flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-300 ${
+                  active
+                    ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/30 translate-x-1'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <span className="text-lg transition-transform group-hover:scale-110">{link.icon}</span>
+                <span className="flex-1 tracking-wide">{link.label}</span>
+                {showBadge && (
+                  <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">
+                    {pendingGrading}
+                  </span>
+                )}
+                {active && <div className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,1)]"></div>}
+              </Link>
+            );
+          })}
+        </nav>
 
-      {/* Logout */}
-      <div className="px-3 py-4 border-t border-indigo-700">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white bg-red-600 hover:bg-red-700 transition-colors"
-        >
-          <span>🚪</span> Logout
-        </button>
-      </div>
-    </aside>
+        {/* Footer Area */}
+        <div className="p-4 border-t border-white/5 bg-slate-900/50 backdrop-blur-md">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white font-black text-xs uppercase tracking-widest transition-all duration-300 shadow-sm"
+          >
+           LOGOUT
+          </button>
+        </div>
+      </aside>
     </>
   );
 };

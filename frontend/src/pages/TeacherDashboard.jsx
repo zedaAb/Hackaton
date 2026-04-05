@@ -40,25 +40,34 @@ const Overview = ({ submissions, assignments }) => {
   const noKey = assignments.filter((a) => !a.answer_key).length;
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-1">Welcome, {user?.name} 👋</h2>
-      <p className="text-gray-400 text-sm mb-6">Teacher dashboard overview</p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div className="animate-fade-in">
+      <h2 className="text-3xl font-black text-slate-900 mb-2 leading-none uppercase tracking-tighter">Welcome, <span className="gradient-text">{user?.name}</span> 👋</h2>
+      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-10">Teacher Dashboard Analytics</p>
+      
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         {[
-          { label: 'Total Submissions', value: submissions.length, color: 'text-indigo-600' },
-          { label: 'Graded', value: graded, color: 'text-green-600' },
-          { label: 'Pending', value: pending, color: 'text-yellow-500' },
-          { label: 'Assignments', value: assignments.length, color: 'text-blue-600' },
+          { label: 'Total Submissions', value: submissions.length, icon: '📊', color: 'from-indigo-500 to-indigo-600' },
+          { label: 'Graded', value: graded, icon: '✅', color: 'from-emerald-500 to-emerald-600' },
+          { label: 'Pending', value: pending, icon: '⏳', color: 'from-amber-500 to-orange-600' },
+          { label: 'Assignments', value: assignments.length, icon: '📋', color: 'from-blue-500 to-blue-600' },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl shadow p-4 text-center">
-            <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
-            <p className="text-sm text-gray-500 mt-1">{s.label}</p>
+          <div key={s.label} className="glass-card !bg-white p-6 rounded-[2rem] border-slate-100 hover:shadow-indigo-500/10 transition-all group overflow-hidden relative">
+            <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${s.color} opacity-[0.03] rounded-bl-[4rem]`}></div>
+            <div className="flex items-center gap-4 mb-4">
+               <span className="text-2xl group-hover:scale-110 transition-transform">{s.icon}</span>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{s.label}</p>
+            </div>
+            <p className={`text-4xl font-black text-slate-900 tracking-tight`}>{s.value}</p>
           </div>
         ))}
       </div>
+      
       {noKey > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 text-sm text-orange-700 mb-6">
-          ⚠ {noKey} assignment{noKey > 1 ? 's' : ''} missing an answer key. Go to Assignments to set them before grading.
+        <div className="bg-amber-50/50 border border-amber-200/50 backdrop-blur-md rounded-2xl p-5 text-sm text-amber-800 mb-8 flex items-center gap-4 animate-fade-in-up">
+          <div className="text-2xl bg-white rounded-xl w-10 h-10 flex items-center justify-center shadow-sm">⚠️</div>
+          <p className="font-medium">
+            <span className="font-black">{noKey}</span> assignment{noKey > 1 ? 's' : ''} missing an answer key. Set them in <span className="underline italic">Assignments</span> before grading.
+          </p>
         </div>
       )}
     </div>
@@ -151,35 +160,35 @@ const SubmissionsSection = ({ submissions, assignments, fetchAll }) => {
   };
 
   return (
-    <div className="print:m-0 print:p-0">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 print:hidden">
+    <div className="print:m-0 print:p-0 animate-fade-in">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-10 print:hidden gap-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-1">Submissions & Grades</h2>
-          <p className="text-gray-400 text-sm">Grade student submissions or view the overall gradebook</p>
+          <h2 className="text-3xl font-black text-slate-900 mb-2 leading-none uppercase tracking-tighter">Submissions & <span className="gradient-text">Grades</span></h2>
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Evaluate student work and manage platform performance</p>
         </div>
-        <div className="flex flex-wrap gap-2 mt-4 sm:mt-0">
+        <div className="flex flex-wrap gap-3">
           <button 
             onClick={() => setViewMode('list')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium border ${viewMode === 'list' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+            className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 border ${viewMode === 'list' ? 'bg-slate-900 text-white border-slate-900 shadow-xl' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
           >
-            Chronological View
+            Chronological List
           </button>
           <button 
             onClick={() => setViewMode('student')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium border ${viewMode === 'student' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+            className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 border ${viewMode === 'student' ? 'bg-slate-900 text-white border-slate-900 shadow-xl' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
           >
-             Student Gradebook (Excel View)
+             Gradebook Grid
           </button>
           
           {viewMode === 'student' && (
-            <>
-              <button onClick={() => window.print()} className="px-4 py-2 rounded-lg text-sm font-medium border bg-white text-gray-600 border-gray-200 hover:bg-gray-50 flex items-center gap-1">
+            <div className="flex gap-3">
+              <button onClick={() => window.print()} className="px-5 py-3 rounded-2xl text-xs font-black uppercase border bg-white text-slate-600 border-slate-200 hover:bg-slate-50 flex items-center gap-2">
                 🖨️ Print
               </button>
-              <button onClick={handleExportCSV} className="px-4 py-2 rounded-lg text-sm font-medium border bg-green-600 text-white border-green-600 hover:bg-green-700 flex items-center gap-1">
-                📊 Export CSV
+              <button onClick={handleExportCSV} className="px-5 py-3 rounded-2xl text-xs font-black uppercase border bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95">
+                📊 Export
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -407,136 +416,152 @@ const UploadSection = ({ assignments, fetchAll }) => {
   };
 
   const FileBox = ({ label, icon, hint, file, onChange, multiple }) => (
-    <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 hover:border-indigo-300 transition-colors">
-      <p className="text-sm font-medium text-gray-700 mb-1">{icon} {label}</p>
-      {hint && <p className="text-xs text-gray-400 mb-2">{hint}</p>}
+    <div className="group relative border-2 border-dashed border-slate-200 rounded-[2rem] p-6 hover:border-indigo-400 hover:bg-slate-50/50 transition-all cursor-pointer">
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-xl group-hover:scale-110 transition-transform duration-300">{icon}</span>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{label}</p>
+      </div>
+      {hint && <p className="text-[10px] text-slate-400 mb-4 font-medium opacity-80">{hint}</p>}
       <input type="file" accept="image/*,.pdf" multiple={multiple}
-        className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 file:text-xs"
+        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
         onChange={onChange}
       />
+      
       {!multiple && file && (
-        <p className="text-xs text-green-600 mt-1">✓ {file.name}</p>
+        <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl text-[10px] font-black animate-fade-in w-fit">
+          <span className="text-sm">✓</span> {file.name}
+        </div>
       )}
       {multiple && studentFiles.length > 0 && (
-        <div className="mt-2 space-y-1">
-          {studentFiles.map((f, i) => (
-            <p key={i} className="text-xs text-green-600">✓ {f.name}</p>
-          ))}
-          <p className="text-xs text-indigo-600 font-medium">{studentFiles.length} student paper(s) selected</p>
+        <div className="space-y-2 animate-fade-in">
+          <p className="text-[11px] font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl w-fit">
+            {studentFiles.length} papers selected
+          </p>
+          <div className="flex flex-wrap gap-2">
+             {studentFiles.slice(0, 3).map((f, i) => (
+                <span key={i} className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg border border-slate-200">{f.name}</span>
+             ))}
+             {studentFiles.length > 3 && <span className="text-[9px] text-slate-400 font-bold">+{studentFiles.length - 3} more</span>}
+          </div>
         </div>
+      )}
+      {(!file && (!multiple || studentFiles.length === 0)) && (
+          <p className="text-[10px] font-bold text-slate-300 group-hover:text-indigo-300 transition-colors">Click or drag to upload</p>
       )}
     </div>
   );
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-1">Upload Exam</h2>
-      <p className="text-gray-400 text-sm mb-6">
-        Upload 1 question + 1 teacher answer + multiple student papers. AI will identify each student from their paper.
-      </p>
+    <div className="animate-fade-in">
+      <h2 className="text-3xl font-black text-slate-900 mb-2 leading-none uppercase tracking-tighter">Bulk <span className="gradient-text">Exam</span> Upload</h2>
+      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-10">AI will automatically identify students and match papers</p>
 
-      <div className="bg-white rounded-xl shadow p-6 max-w-2xl">
+      <div className="glass-card !bg-white p-8 md:p-12 rounded-[3.5rem] border-slate-100 shadow-2xl shadow-slate-200/50 max-w-4xl">
         {message && (
-          <div className={`mb-4 px-4 py-2 rounded text-sm flex justify-between items-center ${
-            message.includes('failed') || message.includes('error') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'
+          <div className={`mb-8 px-6 py-4 rounded-3xl text-sm font-bold flex justify-between items-center animate-fade-in ${
+            message.includes('failed') || message.includes('error') ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'
           }`}>
-            <span>{message}</span>
-            <button onClick={() => setMessage('')}>&times;</button>
+            <span className="flex items-center gap-3">
+              {message.includes('failed') ? '⚠️' : '✅'}
+              {message}
+            </span>
+            <button onClick={() => setMessage('')} className="opacity-40 hover:opacity-100">&times;</button>
           </div>
         )}
 
-        <form onSubmit={handleUpload} className="space-y-5">
-          {/* Department dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Department <span className="text-red-500">*</span>
-            </label>
-            <select
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              value={form.department}
-              onChange={(e) => setForm({ ...form, department: e.target.value })}
-              required
-            >
-              <option value="">— Select Department —</option>
-              {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            {form.department && (
-              <p className="text-xs text-indigo-600 mt-1">
-                Student papers will be matched to <strong>{form.department}</strong> students
-              </p>
-            )}
+        <form onSubmit={handleUpload} className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Department dropdown */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">
+                Department <span className="text-red-500">*</span>
+              </label>
+              <select
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/30 transition-all appearance-none cursor-pointer"
+                value={form.department}
+                onChange={(e) => setForm({ ...form, department: e.target.value })}
+                required
+              >
+                <option value="">— Select —</option>
+                {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+
+            {/* Exam Type */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">
+                Exam Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/30 transition-all appearance-none cursor-pointer"
+                value={form.exam_type}
+                onChange={(e) => setForm({ ...form, exam_type: e.target.value })}
+                required
+              >
+                <option value="">— Select —</option>
+                {EXAM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
           </div>
 
-          {/* Exam Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Exam Selection <span className="text-red-500">*</span>
-            </label>
-            <select
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              value={form.exam_type}
-              onChange={(e) => setForm({ ...form, exam_type: e.target.value })}
-              required
-            >
-              <option value="">— Select Exam Type —</option>
-              {EXAM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FileBox label="Exam Question" icon="📄" hint="One clear photo"
+              file={questionFile} onChange={(e) => setQuestionFile(e.target.files[0])} />
+            <FileBox label="Teacher Key" icon="📘" hint="Model answer paper"
+              file={teacherFile} onChange={(e) => setTeacherFile(e.target.files[0])} />
           </div>
 
-          {/* Single images */}
-          <FileBox label="Exam Question" icon="📄" hint="One photo of the exam question paper"
-            file={questionFile} onChange={(e) => setQuestionFile(e.target.files[0])} />
-          <FileBox label="Teacher's Correct Answer" icon="📘" hint="One photo of the model answer / marking scheme"
-            file={teacherFile} onChange={(e) => setTeacherFile(e.target.files[0])} />
+          <div className="md:col-span-2">
+            <FileBox label="Student Papers" icon="📝"
+              hint="Bulk select all student papers. AI identifies ID & Name."
+              multiple onChange={handleStudentFiles} />
+          </div>
 
-          {/* Multiple student images */}
-          <FileBox label="Student Answer Papers" icon="📝"
-            hint="Select ALL student answer papers at once. AI will read each paper, extract the student ID and name, and match them automatically."
-            multiple onChange={handleStudentFiles} />
-
-          <div className="bg-indigo-50 rounded-lg p-3 text-xs text-indigo-700 space-y-1">
-            <p>💡 Make sure each student paper has their <strong>Student ID</strong> and <strong>Name</strong> written clearly at the top.</p>
-            <p>After uploading, go to <strong>AI Grading</strong> to grade each submission.</p>
+          <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-5 text-sm text-indigo-800 space-y-2">
+            <p className="flex items-center gap-2 font-bold text-[11px] uppercase tracking-widest text-indigo-400">
+              <span className="text-lg">💡</span> Best Practice
+            </p>
+            <p className="font-medium opacity-80 leading-relaxed">Ensure Student IDs and Names are written in <span className="underline">clear, dark ink</span> at the top of every page for maximum AI accuracy.</p>
           </div>
 
           <button type="submit" disabled={uploading}
-            className="w-full bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2">
+            className="w-full bg-indigo-600 text-white py-5 rounded-[2rem] font-black text-lg shadow-2xl shadow-indigo-500/30 hover:bg-indigo-500 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 transition-all duration-300 flex items-center justify-center gap-3 uppercase tracking-widest leading-none">
             {uploading ? (
-              <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Processing {studentFiles.length} paper(s)...</>
+              <><span className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin" />
+              Processing {studentFiles.length} papers...</>
             ) : (
-              `Upload ${studentFiles.length > 0 ? studentFiles.length + ' Student Paper(s)' : 'Exam'}`
+              `Process ${studentFiles.length > 0 ? studentFiles.length + ' Submissions' : 'Complete Exam'}`
             )}
           </button>
         </form>
 
         {/* Upload results */}
         {results && (
-          <div className="mt-6 border-t pt-4">
-            <h4 className="font-semibold text-gray-700 mb-3 text-sm">Upload Results</h4>
-            <div className="space-y-2">
+          <div className="mt-12 border-t border-slate-100 pt-10">
+            <h4 className="font-black text-slate-900 mb-6 text-sm uppercase tracking-tighter">Evaluation Results</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {results.map((r, i) => (
-                <div key={i} className={`flex items-start gap-3 p-3 rounded-lg text-xs ${
-                  r.status === 'created'   ? 'bg-green-50 text-green-800' :
-                  r.status === 'unmatched' ? 'bg-orange-50 text-orange-800' :
-                  'bg-gray-50 text-gray-600'
+                <div key={i} className={`flex items-start gap-4 p-5 rounded-3xl text-xs transition-all hover:scale-[1.02] ${
+                  r.status === 'created'   ? 'bg-emerald-50 text-emerald-800 border-2 border-emerald-100' :
+                  r.status === 'unmatched' ? 'bg-orange-50 text-orange-800 border-2 border-orange-100' :
+                  'bg-slate-50 text-slate-600 border-2 border-slate-100 opacity-60'
                 }`}>
-                  <span className="text-base shrink-0">
+                  <span className="text-xl shrink-0">
                     {r.status === 'created' ? '✅' : r.status === 'unmatched' ? '⚠️' : '⏭️'}
                   </span>
                   <div>
-                    <p className="font-medium">{r.file}</p>
+                    <p className="font-black mb-1 truncate w-full">{r.file}</p>
                     {r.status === 'created' && (
-                      <p>Matched to: <strong>{r.student_name}</strong>
-                        {r.extracted_id && ` (ID: ${r.extracted_id})`}
+                      <p className="font-bold opacity-80">Matched: <span className="text-emerald-600">{r.student_name}</span>
+                        {r.extracted_id && ` [ID: ${r.extracted_id}]`}
                       </p>
                     )}
                     {r.status === 'unmatched' && (
-                      <p>
-                        Extracted: ID={r.extracted_id || '?'}, Name={r.extracted_name || '?'} — {r.message}
+                      <p className="font-bold opacity-80 italic">
+                        {r.message} <span className="opacity-40">(ID={r.extracted_id || '?'})</span>
                       </p>
                     )}
-                    {r.status === 'skipped' && <p>{r.message}</p>}
+                    {r.status === 'skipped' && <p className="font-medium">{r.message}</p>}
                   </div>
                 </div>
               ))}
@@ -586,12 +611,12 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
       } else {
         await api.post('/teacher/assignments', form);
       }
-      setMessage('Assignment created');
+      setMessage('Assignment successfully deployed');
       setForm({ title: '', description: '', due_date: '', max_marks: 100, department: '' });
       setPdfFile(null);
       fetchAll();
     } catch {
-      setMessage('Failed to create assignment');
+      setMessage('Deployment failed. Please try again.');
     } finally {
       setCreating(false);
     }
@@ -603,12 +628,11 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
     setSavingKey(true);
     try {
       await api.put(`/teacher/assignments/${answerKeyModal.id}/answer-key`, { answer_key: answerKeyText });
-      setMessage('Answer key saved');
+      setMessage('Rubric saved successfully');
       setAnswerKeyModal(null);
       fetchAll();
-      // Refresh submissions if panel is open for this assignment
       if (expandedAsgId === answerKeyModal.id) loadSubmissions(answerKeyModal.id);
-    } catch { setMessage('Failed to save'); } finally { setSavingKey(false); }
+    } catch { setMessage('Failed to save rubric'); } finally { setSavingKey(false); }
   };
 
   const loadSubmissions = async (asgId) => {
@@ -648,41 +672,45 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
   };
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-1">Assignments</h2>
-      <p className="text-gray-400 text-sm mb-6">Create assignments and manage answer keys</p>
+    <div className="animate-fade-in">
+      <h2 className="text-3xl font-black text-slate-900 mb-2 leading-none uppercase tracking-tighter">Academic <span className="gradient-text">Assignments</span></h2>
+      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-10">Create and manage rubrics for automated evaluation</p>
 
       {message && (
-        <div className={`mb-4 px-4 py-2 rounded text-sm flex justify-between ${message.includes('Failed') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-          <span>{message}</span>
-          <button onClick={() => setMessage('')}>&times;</button>
+        <div className={`mb-10 px-6 py-4 rounded-3xl text-sm font-bold border flex justify-between items-center ${message.includes('Failed') ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}>
+          <span className="flex items-center gap-3">
+             {message.includes('Failed') ? '⚠️' : '✅'}
+             {message}
+          </span>
+          <button onClick={() => setMessage('')} className="opacity-40 hover:opacity-100">&times;</button>
         </div>
       )}
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-10">
         {/* Create form */}
-        <div className="bg-white rounded-xl shadow p-6">
-          <h3 className="font-semibold text-gray-700 mb-4">Create New Assignment</h3>
-          <div className="flex gap-2 mb-4">
+        <div className="glass-card !bg-white p-8 md:p-10 rounded-[3rem] border-slate-100 shadow-2xl shadow-slate-200/40">
+          <h3 className="text-xl font-black text-slate-900 mb-8 leading-none uppercase tracking-tighter">Configure <span className="text-indigo-600">New Item</span></h3>
+          <div className="flex gap-4 mb-8">
             <button
               type="button"
               onClick={() => setMode('text')}
-              className={`flex-1 text-xs py-2 rounded-lg border ${mode === 'text' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+              className={`flex-1 text-[10px] font-black uppercase tracking-widest py-4 rounded-2xl border-2 transition-all ${mode === 'text' ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}
             >
-              📝 Text assignment
+               Standard Text
             </button>
             <button
               type="button"
               onClick={() => setMode('pdf')}
-              className={`flex-1 text-xs py-2 rounded-lg border ${mode === 'pdf' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+              className={`flex-1 text-[10px] font-black uppercase tracking-widest py-4 rounded-2xl border-2 transition-all ${mode === 'pdf' ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}
             >
-              📄 PDF assignment
+               PDF Document
             </button>
           </div>
-          <form onSubmit={handleCreate} className="space-y-3">
+          <form onSubmit={handleCreate} className="space-y-6">
             <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Department</label>
               <select
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/30 transition-all appearance-none cursor-pointer"
                 value={form.department}
                 onChange={(e) => setForm({ ...form, department: e.target.value })}
                 required
@@ -691,49 +719,55 @@ const AssignmentsSection = ({ assignments, fetchAll }) => {
                 {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
-            <input type="text" placeholder="Title" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+            
+            <div>
+               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Assignment Title</label>
+               <input type="text" placeholder="Title" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+            </div>
+
             {mode === 'text' ? (
-              <textarea
-                placeholder="Full assignment text / questions / instructions for students"
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                rows={5}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                required
-              />
+              <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Instructions / Rubric</label>
+                  <textarea
+                    placeholder="Full assignment text or grading instructions..."
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all min-h-[160px]"
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    required
+                  />
+              </div>
             ) : (
               <>
                 <textarea
-                  placeholder="Optional short note (shown with the PDF)"
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  placeholder="Optional short note for students..."
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
                   rows={2}
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Assignment PDF (required)</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Attachment (PDF)</label>
                   <input
                     type="file"
                     accept="application/pdf,.pdf"
-                    className="w-full text-sm text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700"
+                    className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-2xl file:border-0 file:bg-indigo-50 file:text-indigo-700 file:text-xs file:font-black file:uppercase"
                     onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
                   />
-                  {pdfFile && <p className="text-xs text-green-600 mt-1">✓ {pdfFile.name}</p>}
                 </div>
               </>
             )}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Due Date</label>
-                <input type="datetime-local" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Due Date</label>
+                <input type="datetime-local" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-sans" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Max Marks</label>
-                <input type="number" min="1" max="1000" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.max_marks} onChange={(e) => setForm({ ...form, max_marks: e.target.value })} />
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Max Marks</label>
+                <input type="number" min="1" max="1000" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all" value={form.max_marks} onChange={(e) => setForm({ ...form, max_marks: e.target.value })} />
               </div>
             </div>
-            <button type="submit" disabled={creating} className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
-              {creating ? 'Creating…' : 'Create Assignment'}
+            <button type="submit" disabled={creating} className="w-full bg-indigo-600 text-white py-5 rounded-[2rem] font-black text-lg shadow-2xl shadow-indigo-500/30 hover:bg-indigo-500 active:scale-[0.98] transition-all duration-300 uppercase tracking-widest leading-none">
+              {creating ? 'DEPLOYING…' : 'CREATE ASSIGNMENT'}
             </button>
           </form>
         </div>
@@ -1469,19 +1503,21 @@ const AIGradingSection = ({ submissions, assignments, fetchAll }) => {
       {analysisModal && <AnalysisModal submission={analysisModal} onClose={() => setAnalysisModal(null)} />}
 
       {modalImage && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setModalImage(null)}>
-          <div className="relative max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md flex items-center justify-center z-[1000] p-4 md:p-10" onClick={() => setModalImage(null)}>
+          <div className="relative w-full h-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
             <button 
               onClick={() => setModalImage(null)}
-              className="absolute -top-10 right-0 text-white text-3xl opacity-80 hover:opacity-100 transition-opacity"
+              className="absolute top-0 right-0 md:-top-5 md:-right-5 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center text-3xl transition-all hover:rotate-90 z-[70] shadow-2xl border border-white/10"
             >
               &times;
             </button>
-            <img 
-              src={modalImage} 
-              alt="Preview" 
-              className="w-full h-full object-contain rounded-lg shadow-2xl"
-            />
+            <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                <img 
+                  src={modalImage} 
+                  alt="Preview" 
+                  className="max-w-full max-h-full object-contain rounded-2xl shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-white/5 animate-fade-in"
+                />
+            </div>
           </div>
         </div>
       )}

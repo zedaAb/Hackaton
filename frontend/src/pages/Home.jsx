@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 const Home = () => {
   const navigate = useNavigate();
   const [isDarkMode, setIsDarkMode] = useState(true);
-
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
@@ -12,65 +11,65 @@ const Home = () => {
       
       {/* Navbar overlay for mobile */}
       {isMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden flex flex-col items-center justify-center bg-slate-900/95 backdrop-blur-xl animate-fade-in">
+        <div className="fixed inset-0 z-50 md:hidden flex flex-col items-center justify-center bg-slate-900/95 backdrop-blur-3xl animate-fade-in">
           <button 
             onClick={() => setIsMenuOpen(false)}
             className="absolute top-8 right-8 text-white text-4xl font-light hover:rotate-90 transition-transform duration-300"
           >
             &times;
           </button>
-          <div className="flex flex-col items-center gap-8 animate-fade-in-up">
+          <div className="flex flex-col items-center gap-10 animate-fade-in-up uppercase tracking-widest text-sm font-bold">
             <button
               onClick={() => { setIsDarkMode(!isDarkMode); setIsMenuOpen(false); }}
-              className="px-8 py-3 rounded-full bg-white/5 border border-white/10 text-white flex items-center gap-3 text-lg"
+              className="px-10 py-4 rounded-2xl bg-white/5 border border-white/10 text-white flex items-center gap-3 hover:bg-white/10 transition-all shadow-2xl"
             >
-              {isDarkMode ? '☀️ Regular Mode' : '🌙 Dark Mode'}
+              {isDarkMode ? '☀️ LIGHT MODE' : '🌙 DARK MODE'}
             </button>
             <button
               onClick={() => navigate('/login')}
-              className="px-12 py-4 rounded-full bg-indigo-600 text-white font-bold text-xl shadow-xl shadow-indigo-500/20"
+              className="px-14 py-5 rounded-2xl bg-indigo-600 text-white shadow-2xl shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all"
             >
-              Sign In
+              SIGN IN
             </button>
           </div>
         </div>
       )}
 
-      {/* Dynamic Background Elements */}
-      <div className={`absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full mix-blend-multiply filter blur-[128px] animate-pulse ${isDarkMode ? 'bg-indigo-600 opacity-50' : 'bg-indigo-300 opacity-60'}`}></div>
-      <div className={`absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full mix-blend-multiply filter blur-[128px] ${isDarkMode ? 'bg-blue-600 opacity-40' : 'bg-blue-300 opacity-50'}`}></div>
+      {/* Background Blooms */}
+      <div className={`absolute top-[-20%] left-[-10%] w-[800px] h-[800px] rounded-full mix-blend-multiply filter blur-[128px] animate-pulse duration-[15s] ${isDarkMode ? 'bg-indigo-600/20' : 'bg-indigo-500/10'}`}></div>
+      <div className={`absolute bottom-[-10%] right-[-10%] w-[900px] h-[900px] rounded-full mix-blend-multiply filter blur-[128px] animate-pulse duration-[10s] ${isDarkMode ? 'bg-blue-600/10' : 'bg-blue-400/10'}`}></div>
+      <div className={`absolute top-[40%] right-[-5%] w-[400px] h-[400px] rounded-full mix-blend-multiply filter blur-[96px] animate-pulse duration-[12s] ${isDarkMode ? 'bg-purple-600/10' : 'bg-purple-400/5'}`}></div>
 
       {/* Navbar */}
-      <nav className="relative z-10 flex justify-between items-center px-6 md:px-8 py-6 w-full max-w-7xl mx-auto animate-fade-in">
-        <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 ${isDarkMode ? 'bg-white/10' : 'bg-indigo-50 border border-indigo-100'}`}>
-            <img src="/logo.png" alt="AI Grader" className="w-9 h-9 md:w-11 md:h-11 object-contain" />
+      <nav className="relative z-10 flex justify-between items-center px-6 md:px-12 py-8 w-full max-w-7xl mx-auto animate-fade-in">
+        <div className="flex items-center gap-4 transition-all hover:scale-105 duration-500 cursor-pointer group" onClick={() => navigate('/')}>
+          <div className="w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center glass-card border-none bg-white/10 shadow-[0_0_30px_rgba(79,70,229,0.15)] group-hover:shadow-indigo-500/25 transition-all ring-1 ring-white/10">
+            <img src="/logo.png" alt="AI Grader" className="w-8 h-8 md:w-10 md:h-10 object-contain rounded-full" />
           </div>
-          <h1 className={`text-xl md:text-2xl font-bold tracking-tight transition-colors ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>AI Grader</h1>
+          <h1 className={`text-2xl md:text-3xl font-black tracking-tight transition-colors ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+            AI <span className="gradient-text">Grader</span>
+          </h1>
         </div>
         
-        {/* Desktop Menu */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-6">
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-transform hover:scale-110 ${isDarkMode ? 'bg-white/10 text-yellow-300 hover:bg-white/20' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
-            title="Toggle Theme"
+            className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl transition-all hover:rotate-6 ${isDarkMode ? 'bg-white/5 text-yellow-300 border border-white/10 hover:bg-white/10' : 'bg-white text-slate-700 border border-slate-200 hover:shadow-lg shadow-sm'}`}
           >
             {isDarkMode ? '☀️' : '🌙'}
           </button>
           
           <button
             onClick={() => navigate('/login')}
-            className={`backdrop-blur-md border text-sm font-semibold px-6 py-2.5 rounded-full hover:scale-105 transition-all duration-300 ${isDarkMode ? 'bg-white/10 border-white/20 text-white hover:bg-white/20' : 'bg-white border-slate-200 text-indigo-700 hover:bg-slate-100 shadow-sm'}`}
+            className={`px-8 py-3 rounded-2xl text-sm font-black tracking-wide uppercase transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-2xl ${isDarkMode ? 'bg-indigo-600 text-white shadow-indigo-500/30 hover:bg-indigo-500' : 'bg-white text-indigo-700 border border-slate-200 hover:shadow-indigo-500/10'}`}
           >
             Sign In
           </button>
         </div>
 
-        {/* Mobile Menu Toggle */}
         <button 
           onClick={() => setIsMenuOpen(true)}
-          className={`md:hidden p-2 rounded-xl border transition-colors ${isDarkMode ? 'border-white/10 text-white hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+          className={`md:hidden p-3 rounded-2xl border transition-all ${isDarkMode ? 'border-white/10 text-white bg-white/5 hover:bg-white/10' : 'border-slate-200 text-slate-600 bg-white shadow-sm'}`}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
@@ -78,96 +77,68 @@ const Home = () => {
         </button>
       </nav>
 
-      {/* Hero Section */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4 mt-6 mb-20">
-        <div className={`animate-fade-in-up inline-flex items-center gap-2 border backdrop-blur-md text-xs font-semibold px-4 py-1.5 rounded-full mb-8 tracking-wide uppercase shadow-lg ${isDarkMode ? 'bg-indigo-500/20 border-indigo-400/30 text-indigo-200 shadow-indigo-500/10' : 'bg-indigo-100 border-indigo-200 text-indigo-700 shadow-indigo-200/50'}`}>
-          <span className={`w-2 h-2 rounded-full animate-pulse ${isDarkMode ? 'bg-indigo-400' : 'bg-indigo-500'}`}></span>
-          Powered by Gemini AI
-        </div>
-        
-        <h2 className={`animate-fade-in-up delay-100 text-5xl md:text-7xl font-extrabold text-transparent bg-clip-text leading-tight max-w-4xl mb-6 tracking-tight drop-shadow-sm bg-gradient-to-r ${isDarkMode ? 'from-white via-indigo-100 to-blue-200' : 'from-slate-900 via-indigo-800 to-blue-900'}`}>
-          Automated Exam Grading at the Speed of Light.
-        </h2>
-        
-        <p className={`animate-fade-in-up delay-200 text-lg md:text-xl max-w-2xl mb-12 font-light leading-relaxed transition-colors ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-          Teachers upload exam photos, AI reads and grades them instantly.
-          Students get deeply detailed feedback. Elevate your institution's educational workflow permanently.
-        </p>
-        
-        <div className="animate-fade-in-up delay-300 flex justify-center w-full">
-          <button
-            onClick={() => navigate('/register')}
-            className={`group relative font-bold px-10 py-4 rounded-full text-lg transition-all duration-300 overflow-hidden hover:-translate-y-1 ${isDarkMode ? 'bg-white text-indigo-900 shadow-[0_0_40px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_rgba(255,255,255,0.5)]' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:shadow-xl hover:bg-indigo-700'}`}
-          >
-            <span className="relative z-10 flex items-center gap-2">
-              Get Started for Free
-              <span className="group-hover:translate-x-1 transition-transform">→</span>
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center max-w-5xl mx-auto py-12 md:py-24">
+        <div className="animate-fade-in-up">
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black tracking-[0.2em] uppercase mb-10 glass-card bg-opacity-20 border-none shadow-none ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+             <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
             </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Feature Cards */}
-      <div className="animate-fade-in-up delay-400 relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 px-4 md:px-8 pb-24 max-w-6xl mx-auto w-full">
-        {[
-          { icon: '📸', title: 'Upload Exam Photos', desc: 'Securely upload high-resolution photos or PDFs of handwritten exams in bulk instantly.' },
-          { icon: '🤖', title: 'AI Evaluates Instantly', desc: 'Gemini intelligently extracts handwriting, matches against your custom rubrics, and grades it.' },
-          { icon: '📊', title: 'Advanced Analytics', desc: 'Students receive comprehensive breakdown reports, and admins track systemic performance.' },
-        ].map((f, i) => (
-          <div 
-            key={f.title} 
-            className={`group backdrop-blur-xl border rounded-3xl p-8 hover:-translate-y-2 transition-all duration-500 cursor-default ${isDarkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-indigo-400/50 shadow-2xl' : 'bg-white border-slate-200 text-slate-800 hover:shadow-xl hover:border-indigo-300 shadow-md'}`}
-            style={{ animationDelay: `${i * 150}ms` }}
-          >
-            <div className={`w-14 h-14 border rounded-2xl flex items-center justify-center text-3xl mb-6 shadow-inner group-hover:scale-110 transition-transform duration-500 bg-gradient-to-br ${isDarkMode ? 'from-indigo-500/20 to-blue-500/20 border-white/10 text-white' : 'from-indigo-50 to-blue-50 border-indigo-100 text-indigo-600'}`}>
-              {f.icon}
-            </div>
-            <h3 className={`font-bold text-xl mb-3 tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{f.title}</h3>
-            <p className={`text-sm leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{f.desc}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Footer */}
-      <footer className={`animate-fade-in-up delay-500 relative z-10 border-t pt-16 pb-8 mt-auto ${isDarkMode ? 'border-white/10 bg-slate-900/80 backdrop-blur-3xl' : 'border-slate-200 bg-white/80 backdrop-blur-3xl'}`}>
-        <div className="max-w-7xl mx-auto px-8 w-full">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-            <div className="md:col-span-2">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 ${isDarkMode ? 'bg-white/10' : 'bg-indigo-50 border border-indigo-100'}`}>
-                    <img src="/logo.png" alt="AI Grader" className="w-10 h-10 object-contain" />
-                  </div>
-                  <span className={`text-2xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>AI Grader</span>
-                </div>
-              <p className={`text-sm leading-relaxed max-w-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                Empowering academic institutions with bleeding-edge artificial intelligence to eliminate grading overhead and significantly improve student feedback cycles.
-              </p>
-            </div>
-            
-            <div>
-              <h4 className={`font-bold mb-6 tracking-wider uppercase text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-900'}`}>Platform</h4>
-              <ul className={`space-y-3 text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                <li><button onClick={() => navigate('/login')} className={`transition-colors ${isDarkMode ? 'hover:text-white' : 'hover:text-indigo-600'}`}>Teacher Portal</button></li>
-                <li><button onClick={() => navigate('/login')} className={`transition-colors ${isDarkMode ? 'hover:text-white' : 'hover:text-indigo-600'}`}>Student Dashboard</button></li>
-                <li><button onClick={() => navigate('/login')} className={`transition-colors ${isDarkMode ? 'hover:text-white' : 'hover:text-indigo-600'}`}>Admin Operations</button></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className={`font-bold mb-6 tracking-wider uppercase text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-900'}`}>Legal & Support</h4>
-              <ul className={`space-y-3 text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                <li><a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-white' : 'hover:text-indigo-600'}`}>Privacy Policy</a></li>
-                <li><a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-white' : 'hover:text-indigo-600'}`}>Terms of Service</a></li>
-                <li><a href="#" className={`transition-colors ${isDarkMode ? 'hover:text-white' : 'hover:text-indigo-600'}`}>Help Center Documentation</a></li>
-              </ul>
-            </div>
+            Next generation AI grading
           </div>
           
-          <div className={`border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm font-medium ${isDarkMode ? 'border-white/10 text-slate-500' : 'border-slate-200 text-slate-500'}`}>
-            <p>&copy; {new Date().getFullYear()} AI Grader System Platform. All rights reserved globally.</p>
-            <p className="flex items-center gap-1">
-              Engineered with <span className="text-red-500 animate-pulse">❤</span> for Educators
+          <h2 className={`text-5xl md:text-8xl font-black tracking-tighter mb-8 leading-[1.05] transition-colors ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+            Grading with <br />
+            <span className="gradient-text">Absolute</span> Precision.
+          </h2>
+          
+          <p className={`text-lg md:text-xl mb-14 max-w-2xl mx-auto leading-relaxed font-medium transition-colors ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            Empowering educators through lightning-fast evaluation and deeply intelligent student feedback cycles. Experience the AI revolution in academia.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-5 justify-center delay-300">
+            <button
+              onClick={() => navigate('/register')}
+              className="px-12 py-5 rounded-3xl bg-indigo-600 text-white font-black text-lg shadow-[0_20px_50px_rgba(79,70,229,0.4)] hover:bg-indigo-500 hover:scale-105 active:scale-95 transition-all duration-300"
+            >
+              Get Started for Free →
+            </button>
+          </div>
+        </div>
+
+        {/* Feature Grid */}
+        <div className="mt-32 grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
+            {[
+                { icon: '🎯', title: 'Smart Extraction', desc: 'Read complex handwriting and OCR with high accuracy.' },
+                { icon: '⚡', title: 'Instant Analysis', desc: 'Grade hundred of papers in seconds, not hours.' },
+                { icon: '📝', title: 'Deep Insights', desc: 'Detailed rubrics and personalized improvement tips.' }
+            ].map((f, i) => (
+                <div key={i} className={`p-8 rounded-3xl glass-card transition-all hover:-translate-y-2 group cursor-pointer ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-white shadow-lg shadow-slate-200/40'}`}>
+                    <div className="text-4xl mb-6 group-hover:scale-110 transition-transform duration-300">{f.icon}</div>
+                    <h3 className={`font-bold text-lg mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{f.title}</h3>
+                    <p className={`text-sm leading-relaxed opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{f.desc}</p>
+                </div>
+            ))}
+        </div>
+      </main>
+
+      <footer className={`relative z-10 py-16 px-6 border-t transition-colors ${isDarkMode ? 'border-white/5 bg-slate-900/50' : 'border-slate-200 bg-white/50 backdrop-blur-xl'}`}>
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
+          <div className="flex flex-col items-center md:items-start gap-4">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="AI Grader" className="w-8 h-8 opacity-40 grayscale hover:grayscale-0 transition-all duration-700 cursor-pointer rounded-full" />
+              <span className={`font-bold tracking-tight ${isDarkMode ? 'text-slate-300' : 'text-slate-900'}`}>AI Grader</span>
+            </div>
+            <p className={`text-xs font-semibold uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+              Built for the hackers of tomorrow.
             </p>
+          </div>
+          <div className="flex gap-10">
+            {['Privacy', 'Ethics', 'Legal', 'Support'].map(item => (
+              <a key={item} href="#" className={`text-sm font-bold transition-all hover:text-indigo-500 ${isDarkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400'}`}>
+                {item}
+              </a>
+            ))}
           </div>
         </div>
       </footer>
